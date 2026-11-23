@@ -1,16 +1,48 @@
-# React + Vite
+# 일본어 학습 앱 (japanese-learn)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+히라가나·가타카나부터 JLPT N5 단어, 문법, 여행·식당 회화까지 한 앱에서 연습하는 일본어 학습 앱입니다.
+React로 만든 웹앱을 Capacitor로 감싸 Android 앱(APK/AAB)으로도 빌드합니다.
 
-Currently, two official plugins are available:
+## 기능
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+| 구분 | 내용 |
+| --- | --- |
+| 문자 | 히라가나·가타카나 (탁음·반탁음·요음 포함) 학습, 쓰기 연습 |
+| 단어·한자 | 기본 단어, JLPT N5 단어, 한자 |
+| 문법·회화 | 문법 설명, 상황별 회화, 식당·여행 표현 (여행 표현 즐겨찾기) |
+| 연습 | 퀴즈, 플래시카드, 짝 맞추기, 타임어택, 듣기 퀴즈 (브라우저 음성 합성으로 발음 재생) |
+| 기록 | 하루 목표, 학습 통계 |
 
-## React Compiler
+## 기술
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React 19 + Vite, PWA (`vite-plugin-pwa`)
+- Capacitor 6 (Android)
+- GitHub Actions: 푸시 시 APK 빌드(`build-apk.yml`), 수동 실행으로 Play Store용 서명 AAB 빌드(`build-release.yml`)
 
-## Expanding the ESLint configuration
+## 실행
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm install
+npm run dev        # 개발 서버
+npm run build      # 웹 빌드 (dist/)
+```
+
+### Android
+
+```bash
+npm run build
+npx cap sync android
+npx cap open android   # Android Studio에서 실행·빌드
+```
+
+Play Store 배포 절차(서명 키, GitHub Secrets, AAB 빌드)는 [docs/PLAY_STORE_GUIDE.md](docs/PLAY_STORE_GUIDE.md)에 있습니다.
+개인정보처리방침: [docs/privacy-policy.html](docs/privacy-policy.html)
+
+## 폴더
+
+```
+src/components/   화면 (학습·퀴즈·단어·문법·회화·통계 등)
+src/data/         문자·단어·JLPT·한자·문법·회화 데이터
+android/          Capacitor Android 프로젝트
+docs/             배포 가이드, 개인정보처리방침
+```

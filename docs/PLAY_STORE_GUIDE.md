@@ -117,7 +117,7 @@ base64 japanese-learn.keystore
 아래 파일을 GitHub Pages로 호스팅:
 
 ```
-https://song-wh.github.io/japanese-learn/privacy-policy.html
+https://song-circle.github.io/japanese-learn/privacy-policy.html
 ```
 
 ---
