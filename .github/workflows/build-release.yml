@@ -13,6 +13,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # 단계의 if:에서는 secrets를 직접 쓸 수 없어(워크플로 파일 오류) 환경 변수로 넘긴다
+    env:
+      HAS_KEYSTORE: ${{ secrets.KEYSTORE_BASE64 != '' }}
     
     steps:
     - name: Checkout code
@@ -32,6 +35,9 @@ jobs:
         
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
+      with:
+        # 기본값에 있는 'tools' 패키지는 지금 SDK 저장소에 없어서 설치가 실패한다
+        packages: 'platform-tools'
       
     - name: Install dependencies
       run: npm ci
@@ -47,13 +53,13 @@ jobs:
       
     # 서명 키 디코딩
     - name: Decode Keystore
-      if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+      if: env.HAS_KEYSTORE == 'true'
       run: |
         echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
         
     # 릴리즈용 AAB 빌드 (서명 키가 있는 경우)
     - name: Build Release AAB (Signed)
-      if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+      if: env.HAS_KEYSTORE == 'true'
       run: |
         cd android
         ./gradlew bundleRelease \
@@ -64,7 +70,7 @@ jobs:
           
     # 릴리즈용 AAB 빌드 (서명 키가 없는 경우 - 디버그)
     - name: Build Release AAB (Unsigned)
-      if: ${{ secrets.KEYSTORE_BASE64 == '' }}
+      if: env.HAS_KEYSTORE != 'true'
       run: |
         cd android
         ./gradlew bundleRelease

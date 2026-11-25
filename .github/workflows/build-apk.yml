@@ -32,6 +32,9 @@ jobs:
     
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
+      with:
+        # 기본값에 있는 'tools' 패키지는 지금 SDK 저장소에 없어서 설치가 실패한다
+        packages: 'platform-tools'
     
     - name: Install dependencies
       run: npm ci || npm install
