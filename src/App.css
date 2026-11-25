@@ -1345,3 +1345,24 @@ body {
     justify-content: center;
   }
 }
+
+/* 듣고 맞히기: 문장 뜻 보기는 한 줄씩, 보통 크기 글자 */
+.listen-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 1rem 0;
+}
+
+.listen-options .quiz-option {
+  font-size: 1.1rem;
+  font-family: inherit;
+  padding: 0.9rem 1rem;
+  text-align: left;
+  color: var(--text-primary, white);
+}
+
+.listen-sound {
+  display: flex;
+  justify-content: center;
+}

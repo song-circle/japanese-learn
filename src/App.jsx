@@ -8,6 +8,7 @@ import Flashcard from './components/Flashcard'
 import MatchGame from './components/MatchGame'
 import TimeAttack from './components/TimeAttack'
 import ListenQuiz from './components/ListenQuiz'
+import ListenGuess from './components/ListenGuess'
 import Grammar from './components/Grammar'
 import Conversation from './components/Conversation'
 import JlptWords from './components/JlptWords'
@@ -102,6 +103,8 @@ function App() {
         return <MatchGame onBack={() => navigate('home')} />
       case 'timeattack':
         return <TimeAttack onBack={() => navigate('home')} />
+      case 'listen-guess':
+        return <ListenGuess onBack={() => navigate('home')} />
       case 'listen':
         return <ListenQuiz onBack={() => navigate('home')} />
       case 'grammar':

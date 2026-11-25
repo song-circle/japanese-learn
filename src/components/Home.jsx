@@ -1,6 +1,8 @@
 import { hiragana } from '../data/hiragana'
 import { katakana } from '../data/katakana'
 import { kanjiData } from '../data/kanji'
+import { allSentences } from '../data/sentences'
+import { todayPlan } from '../utils/listenSrs'
 
 function Home({ navigate, progress }) {
   const hiraganaProgress = progress?.hiragana?.learned?.length || 0
@@ -32,6 +34,30 @@ function Home({ navigate, progress }) {
           <div style={{ fontSize: '0.9rem', opacity: 0.8 }}>탭해서 목표 & 배지 확인</div>
         </div>
       )}
+
+      {/* 듣고 맞히기 (매일 하는 것) */}
+      {(() => {
+        const plan = todayPlan(allSentences)
+        const todo = plan.reviews.length + plan.news.length
+        return (
+          <div
+            className="card"
+            style={{ marginTop: '1rem', cursor: 'pointer', background: 'linear-gradient(135deg, #3F51B5 0%, #2196F3 100%)' }}
+            onClick={() => navigate('listen-guess')}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ fontSize: '2.5rem' }}>👂</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>듣고 맞히기</div>
+                <div style={{ opacity: 0.9 }}>
+                  {todo > 0 ? `오늘 복습 ${plan.reviews.length} · 새 문장 ${plan.news.length}` : '오늘 할 것 끝! 🎉'}
+                </div>
+              </div>
+              <div style={{ fontSize: '1.5rem' }}>▶</div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* 기본 학습 섹션 */}
       <div style={{ marginTop: '1.5rem' }}>
