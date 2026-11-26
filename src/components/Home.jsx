@@ -59,6 +59,22 @@ function Home({ navigate, progress }) {
         )
       })()}
 
+      {/* AI 회화 */}
+      <div
+        className="card"
+        style={{ marginTop: '0.75rem', cursor: 'pointer', background: 'linear-gradient(135deg, #00897B 0%, #26A69A 100%)' }}
+        onClick={() => navigate('ai-talk')}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ fontSize: '2.5rem' }}>🗣️</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>AI 회화</div>
+            <div style={{ opacity: 0.9 }}>배운 상황에서 AI와 말로 주고받기</div>
+          </div>
+          <div style={{ fontSize: '1.5rem' }}>▶</div>
+        </div>
+      </div>
+
       {/* 기본 학습 섹션 */}
       <div style={{ marginTop: '1.5rem' }}>
         <h2 style={{ fontSize: '1.1rem', color: 'var(--accent)', marginBottom: '1rem' }}>📚 기본 학습</h2>

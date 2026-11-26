@@ -1377,3 +1377,46 @@ body {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
 }
+
+/* AI 회화 */
+.ai-input {
+  display: block;
+  width: 100%;
+  margin-top: 0.3rem;
+  padding: 0.6rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.btn.ai-small {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.ai-bubble {
+  border-radius: 14px;
+  padding: 0.75rem 0.9rem;
+  margin: 0.5rem 0;
+  max-width: 92%;
+}
+
+.ai-them {
+  background: rgba(38, 166, 154, 0.18);
+  border: 1px solid rgba(38, 166, 154, 0.5);
+}
+
+.ai-me {
+  background: rgba(63, 81, 181, 0.35);
+  margin-left: auto;
+  text-align: right;
+}
+
+.ai-fix {
+  background: rgba(255, 152, 0, 0.15);
+  border: 1px solid rgba(255, 152, 0, 0.5);
+}
