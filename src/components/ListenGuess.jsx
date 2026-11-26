@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { allSentences } from '../data/sentences'
+import ShadowSpeak from './ShadowSpeak'
 import {
-  todayPlan, grade, retryDone, boxOf, dueTomorrow, loadListen,
+  todayPlan, grade, retryDone, addBonus, boxOf, dueTomorrow, loadListen,
   NO_OPTIONS_FROM_BOX, NEW_PER_DAY,
 } from '../utils/listenSrs'
 
@@ -9,6 +10,7 @@ import {
 //   새 문장 : 상황만 보여 주고 듣기 → 뜻 4개 중 고르기 → 답·한글 발음·단어 풀이
 //   복습    : 소리만 듣고 맞히기. 익숙한 문장(3단계~)은 보기 없이 떠올리고 스스로 채점
 //   힌트    : 느리게 듣기(무료) · 한글 발음(-1점) · 첫 단어 뜻(-1점). 힌트 없이 맞히면 3점
+//   따라 말하기: 답을 본 뒤 소리 내어 말하면 음성 인식으로 확인. 통하면 +1점(복습 간격과는 무관)
 
 const audioUrl = (id, slow) => `${import.meta.env.BASE_URL}audio/${id}${slow ? '.slow' : ''}.mp3`
 const shuffle = (xs) => {
@@ -96,6 +98,11 @@ function ListenGuess({ onBack }) {
     if (answered) return
     setPicked(opt)
     finish(opt === s.ko)
+  }
+
+  const speakPassed = () => {
+    addBonus(1)
+    setSession((x) => ({ ...x, points: x.points + 1 }))
   }
 
   const selfGrade = (correct) => {
@@ -255,6 +262,8 @@ function ListenGuess({ onBack }) {
             {showJa && <p style={{ fontSize: '1.3rem', marginTop: '0.5rem' }}>{s.ja}</p>}
           </div>
         )}
+
+        {answered && <ShadowSpeak key={index} sentence={s} onPass={speakPassed} />}
 
         {answered && (
           <button className="quiz-next-btn" onClick={next}>{index < queue.length - 1 ? '다음 →' : '결과 보기 🎯'}</button>

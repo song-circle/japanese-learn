@@ -105,3 +105,14 @@ export function dueTomorrow(state = loadListen()) {
   const tm = addDays(today(), 1)
   return Object.values(state.cards).filter((c) => c.due <= tm).length
 }
+
+// 따라 말하기가 통했을 때 받는 덤 점수. 복습 일정은 바꾸지 않는다.
+export function addBonus(points = 1) {
+  const state = loadListen()
+  const t = today()
+  state.points += points
+  const day = state.days[t] ?? { right: 0, wrong: 0, points: 0 }
+  day.points += points
+  state.days[t] = day
+  save(state)
+}

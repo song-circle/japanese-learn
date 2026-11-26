@@ -1366,3 +1366,14 @@ body {
   display: flex;
   justify-content: center;
 }
+
+/* 따라 말하기: 듣는 중에는 마이크 버튼이 깜빡인다 */
+.mic-btn.listening {
+  background: #F44336;
+  animation: mic-pulse 1s ease-in-out infinite;
+}
+
+@keyframes mic-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
