@@ -59,12 +59,13 @@ jobs:
       run: chmod +x android/gradlew
     
     # 빌드 서버는 매번 새 디버그 서명 키를 만들어서, 서명이 달라 휴대폰에서 업데이트 설치가 거부됐다.
-    # 고정 키(DEBUG_KEYSTORE_BASE64)를 디버그 서명 키 자리에 둬서 늘 같은 서명으로 만든다.
+    # 고정 키(DEBUG_KEYSTORE_BASE64)를 파일로 풀고 DEBUG_KEYSTORE로 경로를 넘기면 app/build.gradle이 그 키로 서명한다.
+    # (~/.android/debug.keystore에 두는 방식은 Gradle이 쓰지 않아 효과가 없었다)
     - name: Use fixed debug signing key
       if: env.HAS_DEBUG_KEYSTORE == 'true'
       run: |
-        mkdir -p ~/.android
-        echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 -d > ~/.android/debug.keystore
+        echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/debug.keystore"
+        echo "DEBUG_KEYSTORE=$RUNNER_TEMP/debug.keystore" >> "$GITHUB_ENV"
 
     - name: Clean previous build
       run: |
@@ -78,6 +79,17 @@ jobs:
           -PappVersionCode=${{ github.run_number }} \
           -PappVersionName=1.0.${{ github.run_number }}
     
+    # 서명이 정말 고정 키인지 확인. 다르면 휴대폰에서 덮어쓰기가 안 되므로 빌드를 실패시킨다
+    - name: Verify APK signature
+      if: env.HAS_DEBUG_KEYSTORE == 'true'
+      run: |
+        WANT=$(keytool -list -v -keystore "$DEBUG_KEYSTORE" -storepass android -alias androiddebugkey | grep -m1 'SHA256:' | sed 's/.*SHA256: //; s/://g' | tr 'A-F' 'a-f')
+        SIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+        GOT=$("$SIGNER" verify --print-certs android/app/build/outputs/apk/debug/app-debug.apk | grep -m1 'SHA-256 digest' | sed 's/.*: //')
+        echo "want $WANT"
+        echo "got  $GOT"
+        [ "$WANT" = "$GOT" ] || { echo "APK 서명이 고정 키와 다릅니다"; exit 1; }
+
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
