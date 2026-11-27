@@ -8,7 +8,7 @@
   "scripts": {
     "build:renderer": "vite build --config vite.config.mjs",
     "start": "npm run build:renderer && electron .",
-    "dist": "npm run build:renderer && electron-builder --win nsis"
+    "dist": "npm run build:renderer && electron-builder --win nsis --publish never"
   },
   "build": {
     "appId": "com.songwh.japaneselisten",
@@ -32,7 +32,13 @@
       "createDesktopShortcut": false,
       "runAfterFinish": true
     },
-    "artifactName": "japanese-listen-setup-${version}.${ext}"
+    "artifactName": "japanese-listen-setup-${version}.${ext}",
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://github.com/song-circle/japanese-learn/releases/download/desktop-latest"
+      }
+    ]
   },
   "devDependencies": {
     "electron": "^45.5.0",
@@ -42,5 +48,8 @@
   "allowScripts": {
     "esbuild@0.28.2": true,
     "electron-winstaller@5.4.0": true
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
   }
 }

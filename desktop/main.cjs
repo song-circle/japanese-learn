@@ -2,8 +2,12 @@
 //   트레이에 상주. 단축키(기본 Ctrl+Alt+J)나 트레이 클릭으로 오른쪽 아래에 작은 창을 띄운다.
 //   창이 뜨면 원어민 음성이 나오고 보기 4개 중 뜻을 고른다. 기록은 이 PC에만 쌓인다(휴대폰과 별개).
 
-const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, screen, nativeImage } = require('electron')
+//   업데이트: 트레이 메뉴 '업데이트 확인'. 켤 때도 조용히 확인해서 받아 두고, 종료할 때 설치한다.
+//   새 버전은 GitHub 릴리스 desktop-latest(고정 주소)에서 받는다.
+
+const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, screen, nativeImage, dialog } = require('electron')
 const path = require('node:path')
+const { autoUpdater } = require('electron-updater')
 
 const WIDTH = 400
 const MARGIN = 16
@@ -14,6 +18,8 @@ let win = null
 let tray = null
 let hotkey = ''
 let status = ''
+let update = ''        // 트레이 메뉴에 보여 줄 업데이트 상태
+let manualCheck = false // 사용자가 직접 '업데이트 확인'을 눌렀는지(결과를 창으로 알려 줌)
 
 if (!app.requestSingleInstanceLock()) app.quit()
 
@@ -85,12 +91,69 @@ function updateTray() {
       },
     },
     { type: 'separator' },
+    { label: update || `업데이트 확인 (지금 v${app.getVersion()})`, enabled: !update || update.startsWith('최신'), click: checkUpdate },
+    { type: 'separator' },
     { label: '종료', click: () => { app.isQuitting = true; app.quit() } },
   ]))
 }
 
+// ---------- 업데이트 ----------
+function setUpdate(text) {
+  update = text
+  updateTray()
+}
+
+function checkUpdate() {
+  if (!app.isPackaged) {
+    dialog.showMessageBox({ message: '개발 중 실행에서는 업데이트를 확인하지 않아요.' })
+    return
+  }
+  manualCheck = true
+  setUpdate('업데이트 확인 중…')
+  autoUpdater.checkForUpdates().catch((e) => {
+    setUpdate('')
+    dialog.showMessageBox({ type: 'error', message: '업데이트를 확인하지 못했어요.', detail: String(e?.message ?? e).slice(0, 300) })
+  })
+}
+
+function setupUpdater() {
+  autoUpdater.autoDownload = true
+  autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.on('update-available', (info) => setUpdate(`새 버전 v${info.version} 받는 중…`))
+  autoUpdater.on('download-progress', (p) => setUpdate(`새 버전 받는 중… ${Math.round(p.percent)}%`))
+  autoUpdater.on('update-not-available', () => {
+    setUpdate(`최신 버전이에요 (v${app.getVersion()}) · 다시 확인`)
+    if (manualCheck) dialog.showMessageBox({ message: `지금이 최신 버전이에요 (v${app.getVersion()}).` })
+    manualCheck = false
+  })
+  autoUpdater.on('update-downloaded', async (info) => {
+    setUpdate(`v${info.version} 받음 · 종료할 때 설치돼요`)
+    const { response } = await dialog.showMessageBox({
+      type: 'info',
+      buttons: ['지금 설치하고 다시 시작', '나중에(종료할 때 설치)'],
+      defaultId: 0,
+      cancelId: 1,
+      message: `새 버전 v${info.version}을(를) 받았어요.`,
+      detail: '학습 기록은 그대로 남아요.',
+    })
+    manualCheck = false
+    if (response === 0) {
+      app.isQuitting = true
+      autoUpdater.quitAndInstall(true, true)
+    }
+  })
+  autoUpdater.on('error', (e) => {
+    setUpdate('')
+    if (manualCheck) dialog.showMessageBox({ type: 'error', message: '업데이트 중 문제가 생겼어요.', detail: String(e?.message ?? e).slice(0, 300) })
+    manualCheck = false
+  })
+  // 켤 때 조용히 한 번 확인(인터넷이 없으면 그냥 넘어감)
+  if (app.isPackaged) autoUpdater.checkForUpdates().catch(() => {})
+}
+
 app.whenReady().then(() => {
   createWindow()
+  setupUpdater()
 
   const icon = nativeImage.createFromPath(path.join(__dirname, 'icon.png')).resize({ width: 16, height: 16 })
   tray = new Tray(icon)

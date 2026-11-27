@@ -57,3 +57,17 @@ jobs:
         make_latest: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    # 자동 업데이트용 고정 주소: desktop-latest 릴리스를 지우고 이번 파일(설치 파일·latest.yml·blockmap)로 다시 만든다.
+    # 설치된 앱은 .../releases/download/desktop-latest/latest.yml을 보고 새 버전을 받는다.
+    - name: Update auto-update feed (desktop-latest)
+      shell: bash
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh release delete desktop-latest --yes --cleanup-tag || true
+        gh release create desktop-latest \
+          release/latest.yml release/japanese-listen-setup-*.exe release/japanese-listen-setup-*.exe.blockmap \
+          --title "PC 듣기 연습 자동 업데이트용 (최신 v1.0.${{ github.run_number }})" \
+          --notes "PC 앱이 자동 업데이트에 쓰는 파일입니다. 처음 설치는 desktop-v로 시작하는 릴리스에서 받으세요." \
+          --latest=false --target "${{ github.sha }}"
