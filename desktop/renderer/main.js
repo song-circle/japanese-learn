@@ -12,6 +12,9 @@
 //   장면 설명(어디서·누가)은 답을 낸 뒤에만 보여 준다.
 //   힌트: 처음엔 숨김. 💡(H)를 누를 때마다 하나씩(각 -1점). 틀리면 정답을 알려 주지 않고 다시 고르게 한다.
 //   키보드: 1~5 고르기 · R 다시 듣기 · S 느리게 · H 힌트 · 0 포기(정답 보기) · N 새 문장 더 · Space/Enter 다음 · Esc 닫기
+//
+//   섞는 문제(extras.js): 한글 받아쓰기 · 소리 없이 말하기(한글로 입력) · 대화 이어 듣기 · 숫자 듣기 · 패턴 빈칸
+//   오늘 할 복습·새 문장이 남았으면 35%, 다 했으면 60% 확률로 이 중 하나가 나온다
 
 import './style.css'
 import { allSentences } from '../../src/data/sentences.js'
@@ -21,6 +24,7 @@ import { clozeFor } from '../../src/utils/cloze.js'
 import { LEVELS, makeLevels, questionType } from '../../src/utils/levels.js'
 import { playReal, stopNoise } from '../../src/utils/realSound.js'
 import { pickSound, voiceName } from '../../src/utils/realVariant.js'
+import { makeExtra, isTyping, checkTyped, KIND_LABEL } from './extras.js'
 
 // 휴대폰과 같은 저장 방식이지만 PC는 하루 종일 켜 두므로 새 문장을 하루 20개까지 낸다(휴대폰은 7개)
 const KEY = 'japanese-learn-listen'
@@ -72,17 +76,40 @@ const shownCount = new Map() // 이번에 켠 뒤 문장별로 몇 번 나왔는
 let session = { right: 0, total: 0, points: 0 }
 let hideTimer = null
 let levelChange = 0  // 이번 문제로 단계가 오르면 1, 내려가면 -1
+let typed = null     // 입력 문제의 채점 결과 { correct, score, diff, value }
 
 const hintSteps = () => {
   if (!q) return []
+  if (q.extra) return q.kind === 'number' ? [] : isTyping(q) ? ['first'] : ['fifty']
   if (q.type === 'cloze') return ['meaning', 'fifty']
   return ['pron', ...(q.s.words.length ? ['word'] : []), ...(q.type === 'choose' ? ['fifty'] : [])]
 }
 
 // ---------- 소리 ----------
 // 실전 소리(1.25배 + 가게 소음)는 휴대폰과 같은 코드(src/utils/realSound.js)
+// 섞는 문제: 여러 마디(대화)를 이어서 재생. 느린 파일이 있는 문장은 그것으로, 없으면 재생 속도로
+let seqTimer = null
+function playSeq(ids, slow) {
+  clearTimeout(seqTimer)
+  audio?.pause()
+  const hasSlow = ['dictation', 'typeSpeak', 'pattern'].includes(q.kind)
+  const go = (i) => {
+    if (i >= ids.length) return
+    audio = new Audio(audioUrl(ids[i], slow && hasSlow))
+    if (slow && !hasSlow) audio.playbackRate = 0.75
+    audio.onended = () => { seqTimer = setTimeout(() => go(i + 1), 450) }
+    audio.play().catch(() => {})
+  }
+  go(0)
+}
+
 function play(slow = false) {
   if (!q) return
+  if (q.extra) {
+    // 소리 없이 말하기는 답을 적기 전에는 들려주지 않는다
+    if (q.silentFirst && !done) return
+    return playSeq(q.clips, slow)
+  }
   audio?.pause()
   stopNoise()
   // 실전 표현(다른 표현·다른 목소리)은 느린 파일이 없어서 재생 속도로 느리게
@@ -131,7 +158,12 @@ function pickQuestion() {
 
 function next() {
   clearTimeout(hideTimer)
-  q = pickQuestion()
+  const p = srs().todayPlan(allSentences)
+  const rate = p.reviews.length + p.news.length ? 0.35 : 0.6
+  q = Math.random() < rate
+    ? { ...makeExtra(srs().load().cards), removed: new Set(), wrongs: new Set() }
+    : pickQuestion()
+  typed = null
   first = null
   done = null
   revealed = false
@@ -144,6 +176,14 @@ function next() {
 // 첫 번째 답으로 채점: 맞으면 3점에서 연 힌트 수만큼 빼고(최소 1점), 단계는 힌트 없이 맞히면 +1, 틀리면 -1
 function gradeFirst(correct) {
   first = correct
+  if (q.extra) {
+    const points = correct ? Math.max(1, (isTyping(q) && q.kind !== 'number' ? 3 : 2) - hintLevel) : 0
+    if (points) srs().addBonus(points)
+    session.total += 1
+    session.right += correct ? 1 : 0
+    session.points += points
+    return
+  }
   const points = correct ? Math.max(1, 3 + q.level - hintLevel) : 0 // 높은 단계일수록 점수도 크게
   const { grade, retryDone, addBonus } = srs()
   if (q.mode === 'practice') {
@@ -192,8 +232,30 @@ function selfGrade(correct) {
   render()
 }
 
+// 입력 문제(받아쓰기·소리 없이 말하기·숫자) 제출
+function submitTyped() {
+  if (!q?.extra || !isTyping(q) || done) return
+  const value = card.querySelector('#ans')?.value ?? ''
+  if (!value.trim()) return
+  const r = checkTyped(q, value)
+  gradeFirst(r.correct)
+  typed = { ...r, value }
+  done = r.correct ? 'right' : 'gaveup'
+  render()
+  play()
+}
+
+function giveUpTyped() {
+  if (!q?.extra || !isTyping(q) || done) return
+  gradeFirst(false)
+  done = 'gaveup'
+  render()
+  play()
+}
+
 function giveUp() {
   if (!q || done || q.type === 'recall') return
+  if (q.extra && isTyping(q)) return giveUpTyped()
   if (first === null) gradeFirst(false)
   done = 'gaveup'
   stopNoise()
@@ -222,8 +284,77 @@ function moreNew() {
 }
 
 // ---------- 화면 ----------
+function renderExtra() {
+  const steps = hintSteps()
+  const opened = steps.slice(0, hintLevel)
+  const moreHints = !done && hintLevel < steps.length
+  const typing = isTyping(q)
+  const firstWord = q.target ? q.target.split(' ')[0] : ''
+  const verdict = done === 'right' ? ['ok', first ? '정답! 🎉' : `맞혔어요 (${q.wrongs.size + 1}번째에)`]
+    : typing ? ['ng', '아쉬워요. 정답은 이거예요'] : ['ng', '정답은 이거예요']
+  const diffHtml = typed?.diff ? `<div class="diff">${typed.diff.map((d) => (d.space ? esc(d.ch) : `<span class="${d.ok ? 'd-ok' : 'd-ng'}">${esc(d.ch)}</span>`)).join('')}</div>` : ''
+  const optionsHtml = q.options && !typing ? `
+    <div class="options">
+      ${q.options.map((o, i) => {
+        let cls = 'opt'
+        if (done && o === q.answer) cls += ' correct'
+        else if (q.wrongs.has(o)) cls += ' wrong'
+        else if (q.removed.has(o)) cls += ' gone'
+        const off = !!done || q.removed.has(o) || q.wrongs.has(o)
+        return `<button class="${cls}" data-opt="${i}" ${off ? 'disabled' : ''}><span class="k">${i + 1}</span>${esc(o)}</button>`
+      }).join('')}
+    </div>` : ''
+  const answerHtml = q.kind === 'number'
+    ? `<div class="pron">${esc(q.n.show)}</div><div class="ja">${esc(q.n.pron)} — ${esc(q.n.ko)}</div>`
+    : q.kind === 'dialogue'
+      ? q.turns.map((t) => `<div class="ja"><b>${esc(t.who)}</b> ${esc(t.pron)} — ${esc(t.ko)}</div>`).join('')
+      : `<div class="pron">${esc(q.s.pron)}</div><div class="ja">${esc(q.s.ja)} — ${esc(q.s.ko)}</div>`
+
+  card.innerHTML = `
+    <div class="top">
+      <span>${KIND_LABEL[q.kind]}</span>
+      <span class="grow"></span>
+      <span>${session.right}/${session.total} · ${session.points}점</span>
+      <button class="x" data-act="close" title="닫기 (Esc)">✕</button>
+    </div>
+    <div class="scene">${esc(q.ask)}</div>
+    <div class="row">
+      ${q.silentFirst && !done ? '' : `<button class="small play" data-act="play">🔊 ${q.kind === 'dialogue' ? '대화 다시 듣기' : '다시 듣기'} <kbd>R</kbd></button>
+      <button class="small" data-act="slow">🐢 느리게 <kbd>S</kbd></button>`}
+      ${moreHints ? `<button class="small" data-act="hint">💡 힌트${first === null ? ' -1점' : ''} <kbd>H</kbd></button>` : ''}
+    </div>
+    ${q.kind === 'pattern' && !done ? `<div class="cloze">${esc(q.masked).replace('____', '<span class="blank">____</span>')}</div>` : ''}
+    ${!done && opened.includes('first') ? `<div class="hint"><span class="sub">첫 단어</span> ${esc(firstWord)} …</div>` : ''}
+    ${!done && q.wrongs.size ? '<div class="hint ngtext">✗ 아니에요. 다시 듣고 골라 보세요</div>' : ''}
+    ${typing && !done ? `
+      <div class="row type-row">
+        <input id="ans" class="type-in" autocomplete="off" spellcheck="false" placeholder="${q.kind === 'number' ? '숫자' : '한글로 입력 후 Enter'}" ${q.kind === 'number' ? 'inputmode="numeric"' : ''}>
+        <button class="small play" data-act="submit">확인 <kbd>Enter</kbd></button>
+      </div>` : optionsHtml}
+    ${done ? `
+      <div class="result">
+        <div class="verdict ${verdict[0]}">${verdict[1]}${typed?.score != null ? ` · ${Math.round(typed.score * 100)}%` : ''}</div>
+        ${diffHtml}
+        ${typed && q.kind !== 'number' ? `<div class="ja">내가 쓴 것: ${esc(typed.value)}</div>` : ''}
+        ${typed && q.kind === 'number' ? `<div class="ja">내가 쓴 것: ${esc(typed.value)}</div>` : ''}
+        ${answerHtml}
+        <div class="row">
+          <button class="small play" data-act="next">다음 문제 <kbd>Space</kbd></button>
+          <button class="small" data-act="close">닫기 <kbd>Esc</kbd></button>
+        </div>
+      </div>` : `
+      <div class="row" style="justify-content: space-between; align-items: center">
+        <span class="keys">${typing ? 'Enter 확인 · Esc 닫기' : `1~${q.options.length} 고르기 · Esc 닫기`}</span>
+        <button class="small" data-act="giveup">포기 (정답 보기) <kbd>${typing ? 'F2' : '0'}</kbd></button>
+      </div>`}
+  `
+  fit()
+  if (typing && !done) setTimeout(() => card.querySelector('#ans')?.focus(), 30)
+}
+
 function render() {
   if (!q) return
+  if (q.extra) return renderExtra()
   const s = q.s
   const modeLabel = q.mode === 'new' ? '<span class="tag">새 문장</span>' : q.mode === 'review' ? '복습' : '연습'
   const levelLabel = `<span class="lv lv${q.level}">Lv${q.level} ${LEVELS[q.type === 'recall' && q.level >= 2 ? 1 : q.level]}</span>`
@@ -345,11 +476,19 @@ card.addEventListener('click', (e) => {
   else if (act === 'self-right') selfGrade(true)
   else if (act === 'self-wrong') selfGrade(false)
   else if (act === 'more') moreNew()
+  else if (act === 'submit') submitTyped()
 })
 
 window.addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase()
   if (k === 'escape') return desk.hide()
+  // 입력칸에 쓰는 중에는 단축키를 쓰지 않는다(Enter 확인, F2 포기만)
+  if (e.target.tagName === 'INPUT') {
+    if (k === 'enter' && !e.isComposing) { e.preventDefault(); submitTyped() }
+    else if (k === 'f2') giveUpTyped()
+    return
+  }
+  if (k === 'f2') return giveUpTyped()
   if (!q) {
     if (k === ' ' || k === 'enter') next()
     return
@@ -361,7 +500,7 @@ window.addEventListener('keydown', (e) => {
   } else if (!done && /^[1-9]$/.test(k) && Number(k) <= q.options.length) {
     return choose(q.options[Number(k) - 1])
   }
-  if (!done && q.type !== 'recall' && k === '0') return giveUp()
+  if (!done && q.type !== 'recall' && !(q.extra && isTyping(q)) && k === '0') return giveUp()
   if (k === 'r') return play()
   if (k === 's') return play(true)
   if (k === 'h') return nextHint()

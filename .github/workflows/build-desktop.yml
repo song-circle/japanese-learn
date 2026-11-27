@@ -7,15 +7,9 @@ on:
     branches: [ main ]
     paths:
       - 'desktop/**'
-      - 'src/data/sentences.js'
-      - 'src/utils/listenSrs.js'
-      - 'src/utils/distractors.js'
-      - 'src/utils/cloze.js'
-      - 'src/utils/levels.js'
-      - 'src/utils/realSound.js'
-      - 'src/utils/realVariant.js'
-      - 'src/utils/hangulPron.js'
-      - 'src/data/variants.js'
+      # PC 앱은 휴대폰 앱의 문장·패턴·대화 데이터와 공용 코드(src/)를 그대로 쓴다
+      - 'src/data/**'
+      - 'src/utils/**'
       - 'public/audio/**'
       - '.github/workflows/build-desktop.yml'
   workflow_dispatch:

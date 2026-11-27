@@ -107,3 +107,8 @@ kbd {
 .lv.variant { background: rgba(255, 167, 38, 0.45); }
 .variant-box { margin-top: 6px; padding: 6px 8px; border-radius: 8px; background: rgba(255, 167, 38, 0.12); border: 1px solid rgba(255, 167, 38, 0.4); font-size: 13px; }
 .variant-box .sub { font-size: 11px; color: #b7b8d4; }
+.type-row { align-items: center; }
+.type-in { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(0, 0, 0, 0.3); color: inherit; font: inherit; font-size: 16px; user-select: text; }
+.diff { font-size: 18px; font-weight: 800; margin: 4px 0; letter-spacing: 0.5px; }
+.diff .d-ok { color: #66bb6a; }
+.diff .d-ng { color: #ff6b6b; text-decoration: underline; }

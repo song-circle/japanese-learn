@@ -8,6 +8,7 @@ import path from 'node:path'
 import { allSentences } from '../src/data/sentences.js'
 import { patternSentences } from '../src/data/patterns.js'
 import { variantClips, voiceClips } from '../src/data/variants.js'
+import { numberBank } from '../src/data/numberBank.js'
 
 const KEY = process.env.AZURE_SPEECH_KEY
 const REGION = process.env.AZURE_SPEECH_REGION
@@ -74,5 +75,13 @@ for (const c of [...variantClips, ...voiceClips]) {
   await synth(c.tts ?? c.ja, c.voice, '0%', file)
   made++
   console.log('made', path.basename(file), c.voice)
+}
+// PC 숫자 듣기용(가나 문장이라 읽기가 정확). 점원 목소리, 보통 속도만
+for (const q of numberBank) {
+  const file = path.join(outDir, `${q.id}.mp3`)
+  if (!force && fs.existsSync(file)) continue
+  await synth(q.ja, 'ja-JP-NanamiNeural', '0%', file)
+  made++
+  console.log('made', path.basename(file))
 }
 console.log(`done: ${made} file(s) made, ${allSentences.length + patternSentences.length} sentences`)
