@@ -1420,3 +1420,33 @@ body {
   background: rgba(255, 152, 0, 0.15);
   border: 1px solid rgba(255, 152, 0, 0.5);
 }
+
+/* 발음 점수 */
+.ai-pron {
+  margin-left: auto;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.pron-word {
+  display: inline-block;
+  border: 1px solid;
+  border-radius: 8px;
+  padding: 0.15rem 0.45rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.pron-word small {
+  font-size: 0.7rem;
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.pron-explain {
+  margin-top: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(38, 166, 154, 0.12);
+  border: 1px solid rgba(38, 166, 154, 0.4);
+}
