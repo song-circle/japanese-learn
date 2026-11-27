@@ -8,6 +8,7 @@
 //     1 뜻 떠올리기  : 보기 없이 떠올리고 정답을 본 뒤 스스로 채점
 //     2 빈칸 듣기    : 한글 발음 문장의 한 단어가 빈칸. 들린 단어를 발음이 비슷한 5개 중에서 고른다
 //     3 실전 소리    : 빈칸 듣기를 1.25배 속도 + 가게 소음으로
+//   실전 표현: 복습·연습 문제에서 가끔 같은 뜻 다른 표현이나 다른 목소리로 들려준다(휴대폰과 같은 코드).
 //   장면 설명(어디서·누가)은 답을 낸 뒤에만 보여 준다.
 //   힌트: 처음엔 숨김. 💡(H)를 누를 때마다 하나씩(각 -1점). 틀리면 정답을 알려 주지 않고 다시 고르게 한다.
 //   키보드: 1~5 고르기 · R 다시 듣기 · S 느리게 · H 힌트 · 0 포기(정답 보기) · N 새 문장 더 · Space/Enter 다음 · Esc 닫기
@@ -19,6 +20,7 @@ import { optionsFor, shuffle, OPTION_COUNT } from '../../src/utils/distractors.j
 import { clozeFor } from '../../src/utils/cloze.js'
 import { LEVELS, makeLevels, questionType } from '../../src/utils/levels.js'
 import { playReal, stopNoise } from '../../src/utils/realSound.js'
+import { pickSound, voiceName } from '../../src/utils/realVariant.js'
 
 // 휴대폰과 같은 저장 방식이지만 PC는 하루 종일 켜 두므로 새 문장을 하루 20개까지 낸다(휴대폰은 7개)
 const KEY = 'japanese-learn-listen'
@@ -83,7 +85,9 @@ function play(slow = false) {
   if (!q) return
   audio?.pause()
   stopNoise()
-  audio = new Audio(audioUrl(q.s.id, slow))
+  // 실전 표현(다른 표현·다른 목소리)은 느린 파일이 없어서 재생 속도로 느리게
+  audio = new Audio(q.sound ? audioUrl(q.sound.id) : audioUrl(q.s.id, slow))
+  if (q.sound && slow) audio.playbackRate = 0.7
   if (q.real && !slow && !done) playReal(audio)
   else audio.play().catch(() => {})
 }
@@ -118,7 +122,8 @@ function pickQuestion() {
   const level = mode === 'new' ? 0 : levelOf(s.id)
   const cloze = level >= 2 ? clozeFor(s, allSentences, OPTION_COUNT) : null
   const { type, real } = questionType(level, !!cloze)
-  const base = { s, mode, level, type, real, removed: new Set(), wrongs: new Set() }
+  const sound = pickSound(s, { level, type, mode: mode === 'new' ? 'new' : 'review' })
+  const base = { s, mode, level, type, real, sound, removed: new Set(), wrongs: new Set() }
   if (type === 'cloze') return { ...base, cloze, options: cloze.options, answer: cloze.answer }
   if (type === 'recall') return { ...base, options: [], answer: s.ko }
   return { ...base, options: optionsFor(s, allSentences), answer: s.ko }
@@ -249,7 +254,7 @@ function render() {
 
   card.innerHTML = `
     <div class="top">
-      <span>👂 ${modeLabel} ${levelLabel}</span>
+      <span>👂 ${modeLabel} ${levelLabel}${q.sound ? ` <span class="lv variant">🎭 ${q.sound.kind === 'text' ? '다른 표현' : '다른 목소리'}</span>` : ''}</span>
       <span class="grow"></span>
       <span>${session.right}/${session.total} · ${session.points}점</span>
       <button class="x" data-act="close" title="닫기 (Esc)">✕</button>
@@ -281,6 +286,8 @@ function render() {
         <div class="pron">${esc(s.pron)}</div>
         <div class="ja">${esc(s.ja)} — ${esc(s.ko)}</div>
         ${q.type === 'cloze' ? `<div class="ja">빈칸: <b>${esc(q.answer)}</b> = ${esc(q.cloze.answerKo)}</div>` : ''}
+        ${q.sound?.kind === 'text' ? `<div class="variant-box">🎭 들은 말: <b>${esc(q.sound.pron)}</b> (${esc(q.sound.ja)})<br><span class="sub">같은 뜻의 다른 표현이에요. 위가 기본 표현이에요.</span></div>` : ''}
+        ${q.sound?.kind === 'voice' ? `<div class="ja">🎭 다른 목소리(${esc(voiceName(q.sound.voice))})로 들었어요</div>` : ''}
         ${s.words.length ? `<ul class="words">${s.words.map(([, p, k]) => `<li>${esc(p)} — ${esc(k)}</li>`).join('')}</ul>` : ''}
         <div class="row">
           <button class="small play" data-act="next">다음 문제 <kbd>Space</kbd></button>

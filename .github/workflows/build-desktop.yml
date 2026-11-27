@@ -13,6 +13,9 @@ on:
       - 'src/utils/cloze.js'
       - 'src/utils/levels.js'
       - 'src/utils/realSound.js'
+      - 'src/utils/realVariant.js'
+      - 'src/utils/hangulPron.js'
+      - 'src/data/variants.js'
       - 'public/audio/**'
       - '.github/workflows/build-desktop.yml'
   workflow_dispatch:

@@ -1519,3 +1519,5 @@ body {
 .lv-chip.lv3 { background: rgba(239, 83, 80, 0.5); }
 .cloze-line { font-size: 1.35rem; font-weight: 800; margin-top: 1rem; }
 .cloze-blank { color: #FFD54F; }
+.lv-chip.variant-chip { background: rgba(255, 167, 38, 0.4); margin-left: 0.3rem; }
+.variant-box { margin: 0.5rem 0; padding: 0.5rem 0.7rem; border-radius: 8px; background: rgba(255, 167, 38, 0.12); border: 1px solid rgba(255, 167, 38, 0.4); }

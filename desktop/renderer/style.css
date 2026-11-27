@@ -104,3 +104,6 @@ kbd {
 .cloze { margin-top: 10px; font-size: 18px; font-weight: 800; letter-spacing: 0.5px; }
 .cloze .blank { color: #ffd54f; }
 .more { justify-content: space-between; align-items: center; border-top: 1px dashed rgba(255, 255, 255, 0.15); padding-top: 8px; margin-top: 10px; }
+.lv.variant { background: rgba(255, 167, 38, 0.45); }
+.variant-box { margin-top: 6px; padding: 6px 8px; border-radius: 8px; background: rgba(255, 167, 38, 0.12); border: 1px solid rgba(255, 167, 38, 0.4); font-size: 13px; }
+.variant-box .sub { font-size: 11px; color: #b7b8d4; }

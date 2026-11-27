@@ -7,6 +7,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { allSentences } from '../src/data/sentences.js'
 import { patternSentences } from '../src/data/patterns.js'
+import { variantClips, voiceClips } from '../src/data/variants.js'
 
 const KEY = process.env.AZURE_SPEECH_KEY
 const REGION = process.env.AZURE_SPEECH_REGION
@@ -65,5 +66,13 @@ for (const s of [...allSentences, ...patternSentences]) {
     made++
     console.log('made', path.basename(file))
   }
+}
+// 실전 표현: 같은 뜻 다른 표현(var-*)과 같은 문장 다른 목소리(voice-*). 보통 속도만(느리게는 재생 속도로)
+for (const c of [...variantClips, ...voiceClips]) {
+  const file = path.join(outDir, `${c.id}.mp3`)
+  if (!force && fs.existsSync(file)) continue
+  await synth(c.tts ?? c.ja, c.voice, '0%', file)
+  made++
+  console.log('made', path.basename(file), c.voice)
 }
 console.log(`done: ${made} file(s) made, ${allSentences.length + patternSentences.length} sentences`)

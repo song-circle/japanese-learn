@@ -8,6 +8,7 @@ import { optionsFor, shuffle } from '../utils/distractors'
 import { clozeFor } from '../utils/cloze'
 import { LEVELS, makeLevels, questionType } from '../utils/levels'
 import { playReal, stopNoise } from '../utils/realSound'
+import { pickSound, voiceName } from '../utils/realVariant'
 import { markStepDone } from '../utils/course'
 
 // 듣고 맞히기 (PC 앱과 같은 방식, 단계식)
@@ -19,6 +20,7 @@ import { markStepDone } from '../utils/course'
 //   새 문장은 늘 뜻 고르기. 장면 설명(어디서·누가)은 답을 낸 뒤에만 보여 준다.
 //   힌트: 처음엔 숨김. 💡를 누를 때마다 하나씩(각 -1점). 느리게 듣기는 무료
 //   틀리면 정답을 알려 주지 않고 그 보기만 막은 뒤 다시 들려준다. 채점은 첫 번째로 고른 답으로
+//   실전 표현: 복습 문제에서 가끔 같은 뜻 다른 표현이나 다른 목소리로 들려준다(src/utils/realVariant.js)
 //   따라 말하기: 답을 본 뒤 소리 내어 말하면 음성 인식으로 확인. 통하면 +1점(복습 간격과는 무관)
 
 const audioUrl = (id, slow) => `${import.meta.env.BASE_URL}audio/${id}${slow ? '.slow' : ''}.mp3`
@@ -35,9 +37,10 @@ const whoText = (who) => (who === '나' ? '내가 하는 말' : `${subj(who)} �
 function reviewItem(s) {
   const level = levels.levelOf(s.id)
   const cloze = level >= 2 ? clozeFor(s, allSentences) : null
-  return { s, mode: 'review', level, cloze, ...questionType(level, !!cloze) }
+  const qt = questionType(level, !!cloze)
+  return { s, mode: 'review', level, cloze, ...qt, sound: pickSound(s, { level, type: qt.type, mode: 'review' }) }
 }
-const chooseItem = (s, mode, extra = {}) => ({ s, mode, level: 0, cloze: null, type: 'choose', real: false, ...extra })
+const chooseItem = (s, mode, extra = {}) => ({ s, mode, level: 0, cloze: null, type: 'choose', real: false, sound: null, ...extra })
 
 function ListenGuess({ onBack }) {
   const [queue, setQueue] = useState(null)   // [{ s, mode, level, type: 'choose'|'recall'|'cloze', real, cloze, retry }]
@@ -73,7 +76,10 @@ function ListenGuess({ onBack }) {
     if (!s) return
     audio.current?.pause()
     stopNoise()
-    audio.current = new Audio(audioUrl(s.id, slow))
+    // 실전 표현(다른 표현·다른 목소리)은 느린 파일이 없어서 재생 속도로 느리게
+    const clip = current.sound
+    audio.current = new Audio(clip ? audioUrl(clip.id) : audioUrl(s.id, slow))
+    if (clip && slow) audio.current.playbackRate = 0.7
     if (current.real && !slow && !done) playReal(audio.current)
     else audio.current.play().catch(() => {})
   }
@@ -266,6 +272,7 @@ function ListenGuess({ onBack }) {
             {current.mode === 'new'
               ? <span style={{ color: 'var(--accent)', fontWeight: 700 }}>새 문장 · </span>
               : <span className={`lv-chip lv${lvShown}`}>Lv{lvShown} {LEVELS[lvShown]}</span>}
+            {current.sound && <span className="lv-chip variant-chip">🎭 {current.sound.kind === 'text' ? '다른 표현' : '다른 목소리'}</span>}
             {' '}{ask}
           </p>
           <div className="listen-sound">
@@ -332,6 +339,15 @@ function ListenGuess({ onBack }) {
             <p style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0.25rem 0' }}>{s.pron}</p>
             <p style={{ fontSize: '1.1rem' }}>{s.ko}</p>
             {type === 'cloze' && <p>빈칸: <b>{current.cloze.answer}</b> = {current.cloze.answerKo}</p>}
+            {current.sound?.kind === 'text' && (
+              <div className="variant-box">
+                <div>🎭 들은 말: <b>{current.sound.pron}</b> <span style={{ color: 'var(--text-secondary)' }}>({current.sound.ja})</span></div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>같은 뜻의 다른 표현이에요. 위가 기본 표현이에요.</div>
+              </div>
+            )}
+            {current.sound?.kind === 'voice' && (
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>🎭 다른 목소리({voiceName(current.sound.voice)})로 들었어요</p>
+            )}
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{s.icon} {s.scene} · {whoText(s.who)}</p>
             {s.words.length > 0 && (
               <ul style={{ margin: '0.75rem 0 0', paddingLeft: '1.2rem' }}>
