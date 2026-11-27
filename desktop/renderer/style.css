@@ -96,3 +96,11 @@ kbd {
   font-family: inherit;
 }
 .ngtext { color: #ff8a8a; font-size: 13px; }
+.lv { margin-left: 4px; padding: 1px 6px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+.lv0 { background: rgba(255, 255, 255, 0.12); }
+.lv1 { background: rgba(66, 165, 245, 0.35); }
+.lv2 { background: rgba(171, 71, 188, 0.45); }
+.lv3 { background: rgba(239, 83, 80, 0.5); }
+.cloze { margin-top: 10px; font-size: 18px; font-weight: 800; letter-spacing: 0.5px; }
+.cloze .blank { color: #ffd54f; }
+.more { justify-content: space-between; align-items: center; border-top: 1px dashed rgba(255, 255, 255, 0.15); padding-top: 8px; margin-top: 10px; }
