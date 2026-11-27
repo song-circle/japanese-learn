@@ -1,13 +1,20 @@
 // 오른쪽 아래 작은 창: 소리 듣고 뜻 고르기
 //   문제 순서는 휴대폰 듣고 맞히기와 같다(복습할 것 먼저, 그다음 오늘의 새 문장).
-//   오늘 할 것을 다 했으면 배운 문장에서 골라 연습만 한다(복습 일정은 바꾸지 않음).
+//   오늘 할 것(복습 + 새 문장 20개)을 다 했으면 배운 문장에서 골라 연습만 한다(복습 일정은 바꾸지 않음).
+//   연습은 최근 10개를 빼고, 덜 나온 것·자주 틀린 것부터.
 //   힌트: 처음엔 숨김. 💡(H)를 누를 때마다 한글 발음 → 첫 단어 뜻 → 보기 둘 지우기 순서로 하나씩(각 -1점)
 //   틀리면 정답을 알려 주지 않고 그 보기만 막은 뒤 다시 들려준다. 채점은 첫 번째로 고른 답으로
 //   키보드: 1~4 고르기 · R 다시 듣기 · S 느리게 · H 힌트 · 0 포기(정답 보기) · Space/Enter 다음 · Esc 닫기
 
 import './style.css'
 import { allSentences } from '../../src/data/sentences.js'
-import { todayPlan, grade, loadListen, addBonus } from '../../src/utils/listenSrs.js'
+import { makeSrs } from '../../src/utils/listenSrs.js'
+
+// 휴대폰과 같은 저장 방식이지만 PC는 하루 종일 켜 두므로 새 문장을 하루 20개까지 낸다(휴대폰은 7개)
+const PC_NEW_PER_DAY = 20
+const srs = makeSrs('japanese-learn-listen', PC_NEW_PER_DAY)
+const { todayPlan, grade, retryDone, addBonus } = srs
+const loadListen = srs.load
 
 const card = document.getElementById('card')
 const desk = window.desk
@@ -43,7 +50,10 @@ let first = null    // 첫 번째로 고른 답이 맞았는지(채점은 이것
 let done = null     // 정답을 보여 주는 중이면 'right' | 'gaveup'
 let hintLevel = 0   // 연 힌트 수: 한글 발음 → 첫 단어 뜻 → 보기 둘 지우기 순서로 하나씩
 let audio = null
-let recent = []     // 방금 본 문장은 바로 다시 내지 않는다
+let recent = []     // 방금 본 문장 10개는 바로 다시 내지 않는다
+// 오늘 틀린 문장: 한 번 더 나오고, 그 결과는 단계를 바꾸지 않고 다음 복습을 내일로(휴대폰과 같음)
+const retryIds = new Set()
+const shownCount = new Map() // 이번에 켠 뒤 문장별로 몇 번 나왔는지(연습 문제를 고르게 섞으려고)
 let session = { right: 0, total: 0, points: 0 }
 let hideTimer = null
 
@@ -69,12 +79,17 @@ function pickQuestion() {
   let mode = s && p.reviews.includes(s) ? 'review' : 'new'
   if (!s) {
     // 오늘 할 것 끝: 배운 문장에서 아무거나 (하나도 안 배웠으면 전체에서)
+    // 덜 나온 것 → 아직 단계가 낮은(자주 틀린) 것 순서로, 같으면 무작위
     const learned = loadListen().cards
     const pool = allSentences.filter((x) => learned[x.id] && notRecent(x))
-    s = shuffle(pool.length ? pool : allSentences.filter(notRecent))[0]
+    const ranked = shuffle(pool.length ? pool : allSentences.filter(notRecent))
+      .sort((a, b) => (shownCount.get(a.id) ?? 0) - (shownCount.get(b.id) ?? 0)
+        || (learned[a.id]?.box ?? 0) - (learned[b.id]?.box ?? 0))
+    s = ranked[0]
     mode = 'practice'
   }
-  recent = [s.id, ...recent].slice(0, 3)
+  recent = [s.id, ...recent].slice(0, 10)
+  shownCount.set(s.id, (shownCount.get(s.id) ?? 0) + 1)
   return { s, mode, options: optionsFor(s), removed: new Set(), wrongs: new Set() }
 }
 
@@ -94,8 +109,12 @@ function gradeFirst(correct) {
   const points = correct ? Math.max(1, 3 - hintLevel) : 0
   if (q.mode === 'practice') {
     if (points) addBonus(1) // 연습은 일정은 그대로, 맞히면 1점만
+  } else if (retryIds.has(q.s.id)) {
+    retryIds.delete(q.s.id)
+    retryDone(q.s.id, points)
   } else {
     grade(q.s.id, correct, points)
+    if (!correct) retryIds.add(q.s.id)
   }
   session.total += 1
   session.right += correct ? 1 : 0
