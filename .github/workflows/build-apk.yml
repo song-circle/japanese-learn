@@ -79,7 +79,7 @@ jobs:
         retention-days: 30
 
     - name: Create Release with APK
-      if: github.event_name == 'push'
+      if: github.event_name != 'pull_request'
       uses: softprops/action-gh-release@v1
       with:
         tag_name: v1.0.${{ github.run_number }}
