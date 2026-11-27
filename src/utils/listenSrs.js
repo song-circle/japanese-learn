@@ -6,8 +6,8 @@
 
 export const INTERVAL_DAYS = [0, 1, 2, 4, 7, 15, 30]
 export const MAX_BOX = INTERVAL_DAYS.length - 1
-// 하루 7개면 200문장을 30일 안에 다 배운다(30일 코스)
-export const NEW_PER_DAY = 7
+// 하루 10개면 300문장을 30일 안에 다 배운다(30일 코스)
+export const NEW_PER_DAY = 10
 export const MAX_REVIEWS = 30
 // 이 단계부터는 보기 없이 떠올리고 스스로 채점한다
 export const NO_OPTIONS_FROM_BOX = 3

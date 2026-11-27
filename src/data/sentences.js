@@ -7,6 +7,9 @@
 //   tts   : (선택) 음성 합성에 넘길 읽기. 한자를 잘못 읽을 수 있는 문장만 가나로 준다
 // 음성 파일: public/audio/<id>.mp3, <id>.slow.mp3 (scripts/gen-audio.mjs로 생성)
 
+import { moreSentences } from './sentencesMore.js'
+import { tense } from '../utils/hangulPron.js'
+
 export const situations = [
   {
     id: 'basic',
@@ -573,6 +576,15 @@ export const situations = [
     ],
   },
 ]
+
+// 실제로 가장 많이 쓰는 다섯 곳(편의점·식당·이자카야·쇼핑·호텔)에 더한 문장(sentencesMore.js)을 같은 상황 뒤에 붙인다.
+// 그쪽 한글 발음은 단어 첫 글자 기준으로 적혀 있어서, 여기서 된소리 규칙을 적용한다
+for (const [sid, list] of Object.entries(moreSentences)) {
+  const sit = situations.find((x) => x.id === sid)
+  for (const x of list) {
+    sit.sentences.push({ ...x, pron: tense(x.pron), words: x.words.map(([ja, pron, ko]) => [ja, tense(pron), ko]) })
+  }
+}
 
 export const allSentences = situations.flatMap((s) =>
   s.sentences.map((x) => ({ ...x, situation: s.id, scene: s.scene, situationName: s.name, icon: s.icon })),

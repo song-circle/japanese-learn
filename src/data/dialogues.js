@@ -32,6 +32,17 @@ export const dialogues = [
   D('room', 'room', '호텔 방 에어컨 고장', ['room-02', 'room-05', 'room-06', 'room-09', 'room-10', 'basic-03']),
   D('reserve', 'reserve', '식당 자리 기다리기', ['reserve-01', 'reserve-02', 'reserve-03', 'reserve-04', 'reserve-05', 'reserve-06', 'reserve-07', 'reserve-08', 'reserve-09']),
   D('gift', 'gift', '기념품 가게 계산', ['gift-07', 'gift-06', 'gift-01', 'gift-02', 'gift-03', 'gift-09', 'gift-10']),
+  // 다섯 곳 추가 문장으로 만든 대화
+  D('konbini3', 'konbini', '컵라면 사고 교통카드로 계산', ['konbini-12', 'konbini-17', 'konbini-18', 'konbini-06', 'konbini-15', 'konbini-16', 'konbini-25', 'konbini-13', 'konbini-14', 'basic-03']),
+  D('konbini4', 'konbini', '맥주 연령 확인과 거스름돈', ['konbini-01', 'konbini-09', 'konbini-10', 'konbini-28', 'reply-01', 'konbini-23', 'konbini-24', 'basic-03']),
+  D('restaurant3', 'restaurant', '라멘집 식권과 곱빼기', ['restaurant-10', 'restaurant-11', 'directions-05', 'restaurant-16', 'restaurant-15', 'restaurant-13', 'restaurant-14', 'konbini-08', 'restaurant-12']),
+  D('restaurant4', 'restaurant', '터치패널 주문과 늦게 나온 요리', ['restaurant-09', 'restaurant-25', 'restaurant-20', 'restaurant-21', 'room-05', 'room-06', 'restaurant-26', 'restaurant-23']),
+  D('izakaya2', 'izakaya', '이자카야 첫 주문', ['izakaya-11', 'izakaya-01', 'izakaya-12', 'izakaya-13', 'izakaya-14', 'izakaya-18', 'izakaya-19', 'restaurant-04']),
+  D('izakaya3', 'izakaya', '술 추가하고 계산', ['izakaya-28', 'izakaya-15', 'izakaya-16', 'izakaya-17', 'izakaya-09', 'izakaya-26', 'izakaya-10', 'izakaya-30']),
+  D('shop2', 'shop', '사이즈 찾기', ['shop-02', 'shop-09', 'shop-10', 'shop-11', 'shop-12', 'shop-13', 'shop-14', 'shop-16', 'shop-28']),
+  D('shop3', 'shop', '면세로 계산하기', ['shop-07', 'shop-18', 'shop-19', 'shop-17', 'konbini-08', 'shop-21', 'reply-01', 'shop-08', 'basic-05']),
+  D('hotel2', 'hotel', '체크인 안내 듣기', ['hotel-01', 'hotel-09', 'hotel-11', 'hotel-10', 'hotel-12', 'hotel-16', 'hotel-17', 'basic-03']),
+  D('hotel3', 'hotel', '체크아웃 연장과 짐 맡기기', ['hotel-27', 'hotel-13', 'hotel-14', 'basic-05', 'hotel-05', 'hotel-22', 'hotel-23', 'hotel-28']),
   D('bus', 'bus', '교토역 가는 버스', ['bus-01', 'bus-02', 'bus-04', 'bus-05', 'bus-07', 'bus-09']),
 ]
 

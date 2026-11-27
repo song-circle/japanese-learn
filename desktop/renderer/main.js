@@ -32,7 +32,7 @@ import { playReal, stopNoise } from '../../src/utils/realSound.js'
 import { pickSound, voiceName } from '../../src/utils/realVariant.js'
 import { compareHangul, TYPE_PASS } from '../../src/utils/hangulCompare.js'
 import { makeExtra, checkNumber } from './extras.js'
-import { buildLesson, createPlayer } from './lesson.js'
+import { buildLesson, buildEndlessBatch, createPlayer } from './lesson.js'
 import { patternSentences } from '../../src/data/patterns.js'
 
 // 휴대폰과 같은 저장 방식이지만 PC는 하루 종일 켜 두므로 새 문장을 하루 20개까지 낸다(휴대폰은 7개)
@@ -333,7 +333,11 @@ function startLesson(minutes) {
   clearTimeout(hideTimer)
   audio?.pause()
   stopNoise()
-  const items = buildLesson({
+  // minutes가 0이면 ∞ 끝까지(끌 때까지 40문장씩 이어 붙임)
+  const endless = !minutes
+  const seen = new Map()
+  const batch = () => buildEndlessBatch({ learned: srs().load().cards, levels: loadLevels(), allSentences, patternSentences, seen })
+  const items = endless ? batch() : buildLesson({
     minutes,
     plan: srs().todayPlan(allSentences),
     learned: srs().load().cards,
@@ -341,13 +345,13 @@ function startLesson(minutes) {
     allSentences,
     patternSentences,
   })
-  lesson = { items, minutes, subs: false, st: null }
+  lesson = { items, minutes, endless, subs: false, st: null, startedAt: Date.now() }
   lesson.player = createPlayer(items, (st) => {
     if (!lesson) return
     lesson.st = st
     if (st.done) finishLesson()
     renderLesson()
-  })
+  }, endless ? batch : null)
   lesson.player.start()
 }
 
@@ -363,6 +367,16 @@ function finishLesson() {
 }
 
 function stopLesson() {
+  // ∞ 끝까지는 끝내기를 눌렀을 때 들은 만큼 점수·기록
+  if (lesson?.endless && lesson.st && !lesson.st.done) {
+    const heard = lesson.st.index
+    if (heard) srs().addBonus(heard)
+    try {
+      const log = JSON.parse(localStorage.getItem('desk-lessons') || '[]')
+      log.push({ date: today(), minutes: Math.round((Date.now() - lesson.startedAt) / 60000), items: heard, endless: true })
+      localStorage.setItem('desk-lessons', JSON.stringify(log.slice(-100)))
+    } catch { /* 기록 실패는 무시 */ }
+  }
   lesson?.player.stop()
   lesson = null
   q = null
@@ -396,14 +410,14 @@ function renderLesson() {
   const showAnswer = st && (st.phase === 'answer' || st.phase === 'repeat')
   card.innerHTML = `
     <div class="top">
-      <span>🎧 오디오 수업 ${lesson.minutes}분 · ${it.role === 'speak' ? '말하기' : '듣기'}</span>
+      <span>🎧 오디오 수업 ${lesson.endless ? '∞' : `${lesson.minutes}분`} · ${it.role === 'speak' ? '말하기' : '듣기'}${it.sound ? ' · 🎭' : ''}</span>
       <span class="grow"></span>
-      <span>${i + 1} / ${total}</span>
+      <span>${lesson.endless ? `${i + 1}문장째 · ${Math.round((Date.now() - lesson.startedAt) / 60000)}분` : `${i + 1} / ${total}`}</span>
       <button class="x" data-act="close" title="창만 닫기 (소리는 계속)">✕</button>
     </div>
-    <div class="lesson-bar"><div style="width:${(i / total) * 100}%"></div></div>
+    ${lesson.endless ? '' : `<div class="lesson-bar"><div style="width:${(i / total) * 100}%"></div></div>`}
     <div class="lesson-phase">${st?.paused ? '⏸ 일시정지' : PHASE_TEXT[st?.phase ?? 'prompt'](it)}</div>
-    ${lesson.subs ? `<div class="hint">${esc(it.s.ko)}${showAnswer ? `<br><b>${esc(it.s.pron)}</b>` : ''}</div>` : ''}
+    ${lesson.subs ? `<div class="hint">${esc(it.s.ko)}${showAnswer ? `<br><b>${esc(it.sound?.pron ?? it.s.pron)}</b>${it.sound?.kind === 'text' ? ` <span class="sub">(기본: ${esc(it.s.pron)})</span>` : ''}` : ''}</div>` : ''}
     <div class="row">
       <button class="small play" data-act="lesson-toggle">${st?.paused ? '▶ 계속' : '⏸ 일시정지'} <kbd>Space</kbd></button>
       <button class="small" data-act="lesson-skip">⏭ 다음 <kbd>→</kbd></button>

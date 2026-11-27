@@ -15,7 +15,7 @@ function CourseCard({ navigate }) {
       <div className="card course-card">
         <div style={{ fontSize: '1.3rem', fontWeight: 800 }}>🗓️ 30일 회화 코스</div>
         <p style={{ margin: '0.4rem 0 0.8rem', opacity: 0.9 }}>
-          하루 30분: 듣기 → 말하기 → 패턴 → 대화.<br />30일이면 여행 회화 문장 200개를 듣고 말할 수 있어요.
+          하루 30분: 듣기 → 말하기 → 패턴 → 대화.<br />30일이면 여행 회화 문장 300개를 듣고 말할 수 있어요.
         </p>
         <button className="btn" style={{ width: '100%', background: 'white', color: '#6A1B9A', fontWeight: 800 }}
           onClick={() => { startCourse(); setC(courseStatus()) }}>

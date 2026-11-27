@@ -89,7 +89,11 @@ function updateTray() {
     { label: status || '오늘 진도 불러오는 중', enabled: false },
     {
       label: '🎧 오디오 수업 (화면 안 봐도 되는 듣기·말하기)',
-      submenu: [5, 10, 15].map((m) => ({ label: `${m}분`, click: () => startLesson(m) })),
+      submenu: [
+        ...[5, 10, 15].map((m) => ({ label: `${m}분`, click: () => startLesson(m) })),
+        { type: 'separator' },
+        { label: '∞ 끝까지 (끌 때까지 · 편의점·식당·술집·쇼핑·호텔 위주)', click: () => startLesson(0) },
+      ],
     },
     { type: 'separator' },
     {
