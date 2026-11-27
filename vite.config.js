@@ -7,6 +7,9 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      // 앱(APK)은 화면 파일을 APK 안에서 바로 읽으므로 서비스 워커가 필요 없다.
+      // 오히려 옛 화면을 캐시에서 보여 줘 업데이트가 안 보였으므로, 스스로 지우는 서비스 워커로 바꾼다.
+      selfDestroying: true,
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon.svg'],
       manifest: {
