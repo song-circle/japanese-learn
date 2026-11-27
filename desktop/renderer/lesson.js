@@ -1,7 +1,10 @@
 // 오디오 수업 (출퇴근·걷기처럼 화면을 안 보는 시간용, Pimsleur 방식)
 //   말하기 문장('나'·패턴): 한국어 뜻 → (일본어로?) → 생각하고 말할 시간 → 일본어 정답 → 따라 할 시간 → 한 번 더
 //   듣기 문장(점원·상대) : 일본어 → (무슨 뜻일까요?) → 떠올릴 시간 → 한국어 뜻 → 일본어 한 번 더
-//   안내 말('일본어로?' 등)은 처음 몇 문장에만 넣는다(익숙해지면 군더더기)
+//   소리만 듣고도 지금 무엇을 할 차례인지 알 수 있게, 매 문장에 신호를 넣는다
+//     말하기 차례: 딩-동(올라가는 두 음) + "말해 보세요"(남자 목소리) → 한국어 뜻(여자 목소리)
+//                  → 생각하는 동안 똑·똑 초침 → 짧은 알림음 → 일본어 정답
+//     듣기 차례  : 낮은 종소리 + "들어 보세요"(남자 목소리) → 일본어 → 생각할 시간 → "뜻은," → 한국어 뜻
 //   문장 고르기: 오늘 복습할 것 → 배운 문장 중 단계가 낮은 것 → 패턴 문장(약 30%) → 그래도 모자라면 새 문장
 //   ∞ 끝까지: 실제로 가장 많이 쓰는 곳(편의점·식당·이자카야·쇼핑·호텔과 카페·예약·기념품·방 문제) 문장을 80%로,
 //             약한 것부터 40문장씩 이어 붙인다. 듣기 문장은 절반쯤 실전 표현(다른 표현·다른 목소리)으로
@@ -14,7 +17,6 @@ export const FOCUS = ['konbini', 'restaurant', 'izakaya', 'shop', 'hotel', 'cafe
 const BATCH = 40
 
 const SECONDS_PER_ITEM = 18
-const GUIDE_FIRST = 3 // 안내 말을 넣는 처음 문장 수
 const url = (id) => `./audio/${id}.mp3`
 
 export function buildLesson({ minutes, plan, learned, levels, allSentences, patternSentences }) {
@@ -60,6 +62,34 @@ export function buildEndlessBatch({ learned, levels, allSentences, patternSenten
 
 // 수업 재생기. onState({ index, total, phase, paused, done })를 부른다
 //   phase: 'prompt'(문제 듣는 중) · 'think'(생각·말할 시간) · 'answer'(정답) · 'repeat'(따라 하기) · 'done'
+// ---------- 신호음(웹 오디오로 만들어 파일이 필요 없다) ----------
+let ctx = null
+function beep(freq, start, dur, vol = 0.18, type = 'sine') {
+  const o = ctx.createOscillator()
+  const g = ctx.createGain()
+  o.type = type
+  o.frequency.value = freq
+  g.gain.setValueAtTime(0, ctx.currentTime + start)
+  g.gain.linearRampToValueAtTime(vol, ctx.currentTime + start + 0.015)
+  g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + dur)
+  o.connect(g).connect(ctx.destination)
+  o.start(ctx.currentTime + start)
+  o.stop(ctx.currentTime + start + dur + 0.05)
+}
+// kind: 'speak'(딩-동, 올라감) · 'listen'(낮은 종소리) · 'answer'(짧은 알림) · 'tick'(초침)
+// 끝나는 데 걸리는 시간(ms)을 돌려준다
+function cue(kind) {
+  try {
+    ctx ??= new AudioContext()
+    ctx.resume?.()
+    if (kind === 'speak') { beep(659, 0, 0.35); beep(988, 0.18, 0.5); return 700 }
+    if (kind === 'listen') { beep(392, 0, 0.9, 0.2, 'triangle'); beep(784, 0, 0.6, 0.05); return 750 }
+    if (kind === 'answer') { beep(1319, 0, 0.18, 0.12); return 250 }
+    if (kind === 'tick') { beep(1800, 0, 0.04, 0.06, 'square'); return 0 }
+  } catch { /* 소리 없이 */ }
+  return 0
+}
+
 // refill: ∞ 끝까지일 때 다음 묶음을 돌려주는 함수(없으면 items만 하고 끝)
 export function createPlayer(items, onState, refill = null) {
   let index = 0
@@ -71,30 +101,34 @@ export function createPlayer(items, onState, refill = null) {
   let timer = null
   let lastDur = 1.5
   let phase = 'prompt'
+  let tickTimers = []
+  const clearTicks = () => { tickTimers.forEach(clearTimeout); tickTimers = [] }
 
   const emit = () => onState({ index, total: refill ? Infinity : items.length, phase, paused, done: phase === 'done', item: items[index] })
 
-  function stepsFor(it, i) {
-    const guide = i < GUIDE_FIRST
+  function stepsFor(it) {
     // 실전 표현이면 그 음성으로(같은 뜻이라 한국어 뜻은 그대로)
     const ja = it.sound?.id ?? it.s.id
     const ko = `ko-${it.s.id}`
     if (it.role === 'speak') {
       return [
+        { phase: 'prompt', cue: 'speak' },
+        { phase: 'prompt', clip: 'guide-say' },
         { phase: 'prompt', clip: ko },
-        ...(guide ? [{ phase: 'prompt', clip: 'lesson-ask-jp' }] : []),
-        { phase: 'think', pause: 4500 },
+        { phase: 'think', pause: 4500, ticks: true }, // 똑·똑 소리가 나는 동안 일본어로 말하기
+        { phase: 'answer', cue: 'answer' },
         { phase: 'answer', clip: ja },
-        ...(guide ? [{ phase: 'repeat', clip: 'lesson-repeat' }] : []),
         { phase: 'repeat', pause: 'echo' }, // 방금 들은 길이만큼 따라 할 시간
         { phase: 'answer', clip: ja },
         { phase: 'repeat', pause: 'echo' },
       ]
     }
     return [
+      { phase: 'prompt', cue: 'listen' },
+      { phase: 'prompt', clip: 'guide-listen' },
       { phase: 'prompt', clip: ja },
-      ...(guide ? [{ phase: 'prompt', clip: 'lesson-ask-meaning' }] : []),
-      { phase: 'think', pause: 3500 },
+      { phase: 'think', pause: 3000 },
+      { phase: 'answer', clip: 'guide-meaning' },
       { phase: 'answer', clip: ko },
       { phase: 'answer', clip: ja },
       { phase: 'repeat', pause: 1200 },
@@ -108,12 +142,16 @@ export function createPlayer(items, onState, refill = null) {
       step = 0
       if (index >= items.length && refill) items.push(...refill())
       if (index >= items.length) return finish()
-      steps = stepsFor(items[index], index)
+      steps = stepsFor(items[index])
     }
     const st = steps[step]
     phase = st.phase
     emit()
     step += 1
+    if (st.cue) {
+      timer = setTimeout(run, cue(st.cue) + 100)
+      return
+    }
     if (st.clip) {
       audio = new Audio(url(st.clip))
       audio.onended = () => {
@@ -124,6 +162,8 @@ export function createPlayer(items, onState, refill = null) {
       audio.play().catch(() => { timer = setTimeout(run, 300) })
     } else {
       const ms = st.pause === 'echo' ? Math.round(lastDur * 1100 + 900) : st.pause
+      // 말할 시간에는 1초마다 초침 소리(지금이 말할 차례라는 신호)
+      if (st.ticks) for (let t = 600; t < ms - 300; t += 1000) tickTimers.push(setTimeout(() => !paused && !stopped && cue('tick'), t))
       timer = setTimeout(run, ms)
     }
   }
@@ -136,7 +176,7 @@ export function createPlayer(items, onState, refill = null) {
   return {
     start() {
       // 시작 안내 → 첫 문장
-      steps = [{ phase: 'prompt', clip: 'lesson-start' }, ...stepsFor(items[0], 0)]
+      steps = [{ phase: 'prompt', clip: 'lesson-start' }, ...stepsFor(items[0])]
       run()
     },
     toggle() {
@@ -144,10 +184,11 @@ export function createPlayer(items, onState, refill = null) {
       paused = !paused
       if (paused) {
         clearTimeout(timer)
+        clearTicks()
         audio?.pause()
         // 다시 시작할 때 지금 문장의 처음부터
         step = 0
-        steps = stepsFor(items[index], index)
+        steps = stepsFor(items[index])
         emit()
       } else {
         run()
@@ -156,19 +197,21 @@ export function createPlayer(items, onState, refill = null) {
     skip() {
       if (phase === 'done') return
       clearTimeout(timer)
+      clearTicks()
       audio?.pause()
       step = steps.length // 다음 문장으로
       if (!paused) run()
       else {
         index = Math.min(index + 1, items.length - 1)
         step = 0
-        steps = stepsFor(items[index], index)
+        steps = stepsFor(items[index])
         emit()
       }
     },
     stop() {
       stopped = true
       clearTimeout(timer)
+      clearTicks()
       audio?.pause()
     },
     endClip() {

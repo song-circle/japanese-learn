@@ -9,7 +9,7 @@ import { allSentences } from '../src/data/sentences.js'
 import { patternSentences } from '../src/data/patterns.js'
 import { variantClips, voiceClips } from '../src/data/variants.js'
 import { numberBank } from '../src/data/numberBank.js'
-import { koClips, lessonClips, KO_VOICE } from '../src/data/lessonClips.js'
+import { koClips, lessonClips, guideClips, KO_VOICE, GUIDE_VOICE } from '../src/data/lessonClips.js'
 
 const KEY = process.env.AZURE_SPEECH_KEY
 const REGION = process.env.AZURE_SPEECH_REGION
@@ -91,6 +91,13 @@ for (const c of [...koClips, ...lessonClips]) {
   const file = path.join(outDir, `${c.id}.mp3`)
   if (!force && fs.existsSync(file)) continue
   await synth(c.text, KO_VOICE, '0%', file)
+  made++
+  console.log('made', path.basename(file))
+}
+for (const c of guideClips) {
+  const file = path.join(outDir, `${c.id}.mp3`)
+  if (!force && fs.existsSync(file)) continue
+  await synth(c.text, GUIDE_VOICE, '0%', file)
   made++
   console.log('made', path.basename(file))
 }
