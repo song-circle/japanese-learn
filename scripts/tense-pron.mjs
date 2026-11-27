@@ -6,29 +6,8 @@
 import fs from 'node:fs'
 
 const FILE = 'src/data/sentences.js'
-const TENSE = { 15: 1, 16: 4, 17: 8 } // 초성 ㅋ→ㄲ, ㅌ→ㄸ, ㅍ→ㅃ
-
-export function tense(pron) {
-  let out = ''
-  let wordStart = true
-  for (const ch of pron) {
-    const code = ch.charCodeAt(0) - 0xac00
-    if (code >= 0 && code < 11172) {
-      const cho = Math.floor(code / 588)
-      if (!wordStart && TENSE[cho] !== undefined) {
-        out += String.fromCharCode(0xac00 + TENSE[cho] * 588 + (code % 588))
-      } else {
-        out += ch
-      }
-      wordStart = false
-    } else {
-      out += ch
-      // 장음 표시 '-'는 단어 안이므로 단어 시작으로 보지 않는다
-      if (ch !== '-') wordStart = true
-    }
-  }
-  return out
-}
+import { tense } from '../src/utils/hangulPron.js'
+export { tense }
 
 if (process.argv[1]?.endsWith('tense-pron.mjs')) {
   const src = fs.readFileSync(FILE, 'utf8')

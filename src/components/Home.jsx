@@ -133,6 +133,22 @@ function Home({ navigate, progress }) {
         )
       })()}
 
+      {/* 패턴 바꿔 말하기 */}
+      <div
+        className="card"
+        style={{ marginTop: '0.75rem', cursor: 'pointer', background: 'linear-gradient(135deg, #5E35B1 0%, #7E57C2 100%)' }}
+        onClick={() => navigate('patterns')}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ fontSize: '2.5rem' }}>🧩</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>패턴 바꿔 말하기</div>
+            <div style={{ opacity: 0.9 }}>〜ください · 〜どこですか 틀에 단어 바꿔 넣기</div>
+          </div>
+          <div style={{ fontSize: '1.5rem' }}>▶</div>
+        </div>
+      </div>
+
       {/* AI 회화 */}
       <div
         className="card"

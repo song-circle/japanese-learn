@@ -6,6 +6,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { allSentences } from '../src/data/sentences.js'
+import { patternSentences } from '../src/data/patterns.js'
 
 const KEY = process.env.AZURE_SPEECH_KEY
 const REGION = process.env.AZURE_SPEECH_REGION
@@ -55,7 +56,8 @@ async function synthOnce(text, voice, rate, file) {
 }
 
 let made = 0
-for (const s of allSentences) {
+// 듣고 맞히기 문장 + 패턴 바꿔 말하기 문장
+for (const s of [...allSentences, ...patternSentences]) {
   for (const [suffix, rate] of [['', '0%'], ['.slow', '-30%']]) {
     const file = path.join(outDir, `${s.id}${suffix}.mp3`)
     if (!force && fs.existsSync(file)) continue
@@ -64,4 +66,4 @@ for (const s of allSentences) {
     console.log('made', path.basename(file))
   }
 }
-console.log(`done: ${made} file(s) made, ${allSentences.length} sentences`)
+console.log(`done: ${made} file(s) made, ${allSentences.length + patternSentences.length} sentences`)

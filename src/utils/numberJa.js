@@ -6,23 +6,8 @@ const ONES = [null, ['いち', '이치'], ['に', '니'], ['さん', '산'], ['�
   ['ろく', '로쿠'], ['なな', '나나'], ['はち', '하치'], ['きゅう', '큐-']]
 
 // 한글 발음은 문장 데이터와 같은 규칙: 단어 중간의 ㅋ·ㅌ·ㅍ는 들리는 대로 ㄲ·ㄸ·ㅃ
-const TENSE = { 15: 1, 16: 4, 17: 8 }
-export function tense(pron) {
-  let out = ''
-  let wordStart = true
-  for (const ch of pron) {
-    const code = ch.charCodeAt(0) - 0xac00
-    if (code >= 0 && code < 11172) {
-      const cho = Math.floor(code / 588)
-      out += !wordStart && TENSE[cho] !== undefined ? String.fromCharCode(0xac00 + TENSE[cho] * 588 + (code % 588)) : ch
-      wordStart = false
-    } else {
-      out += ch
-      if (ch !== '-') wordStart = true
-    }
-  }
-  return out
-}
+import { tense } from './hangulPron.js'
+export { tense }
 
 const join = (parts) => [parts.map((p) => p[0]).join(''), tense(parts.map((p) => p[1]).join(''))]
 
