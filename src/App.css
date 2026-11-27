@@ -1510,3 +1510,12 @@ body {
   background: linear-gradient(135deg, #1565C0 0%, #42A5F5 100%);
   color: white;
 }
+
+/* 듣고 맞히기 단계 */
+.lv-chip { display: inline-block; padding: 0.1rem 0.45rem; border-radius: 6px; font-size: 0.75rem; font-weight: 700; }
+.lv-chip.lv0 { background: rgba(255, 255, 255, 0.12); }
+.lv-chip.lv1 { background: rgba(66, 165, 245, 0.35); }
+.lv-chip.lv2 { background: rgba(171, 71, 188, 0.45); }
+.lv-chip.lv3 { background: rgba(239, 83, 80, 0.5); }
+.cloze-line { font-size: 1.35rem; font-weight: 800; margin-top: 1rem; }
+.cloze-blank { color: #FFD54F; }

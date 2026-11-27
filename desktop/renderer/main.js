@@ -17,6 +17,8 @@ import { allSentences } from '../../src/data/sentences.js'
 import { makeSrs, today } from '../../src/utils/listenSrs.js'
 import { optionsFor, shuffle, OPTION_COUNT } from '../../src/utils/distractors.js'
 import { clozeFor } from '../../src/utils/cloze.js'
+import { LEVELS, makeLevels, questionType } from '../../src/utils/levels.js'
+import { playReal, stopNoise } from '../../src/utils/realSound.js'
 
 // 휴대폰과 같은 저장 방식이지만 PC는 하루 종일 켜 두므로 새 문장을 하루 20개까지 낸다(휴대폰은 7개)
 const KEY = 'japanese-learn-listen'
@@ -36,22 +38,10 @@ function addExtra(n) {
 }
 const srs = () => makeSrs(KEY, PC_NEW_PER_DAY + extraToday())
 
-// ---------- PC 단계 ----------
-const LEVELS = ['뜻 고르기', '뜻 떠올리기', '빈칸 듣기', '실전 소리']
-const MAX_LEVEL = LEVELS.length - 1
-function loadLevels() {
-  try {
-    return JSON.parse(localStorage.getItem('desk-levels') || '{}')
-  } catch {
-    return {}
-  }
-}
-const levelOf = (id) => loadLevels()[id] ?? 0
-function setLevel(id, lv) {
-  const all = loadLevels()
-  all[id] = Math.max(0, Math.min(MAX_LEVEL, lv))
-  localStorage.setItem('desk-levels', JSON.stringify(all))
-}
+// ---------- PC 단계 (휴대폰과 같은 코드, 저장은 PC에) ----------
+const levels = makeLevels('desk-levels')
+const levelOf = levels.levelOf
+const loadLevels = levels.load
 
 const card = document.getElementById('card')
 const desk = window.desk
@@ -88,50 +78,14 @@ const hintSteps = () => {
 }
 
 // ---------- 소리 ----------
-// 실전 소리: 1.25배 속도 + 가게 소음(웹 오디오로 만든 잡음)
-let noiseCtx = null
-let noiseNode = null
-function startNoise() {
-  try {
-    noiseCtx ??= new AudioContext()
-    stopNoise()
-    const len = noiseCtx.sampleRate * 2
-    const buf = noiseCtx.createBuffer(1, len, noiseCtx.sampleRate)
-    const d = buf.getChannelData(0)
-    let last = 0
-    for (let i = 0; i < len; i++) {
-      // 갈색 잡음(웅성거리는 소리에 가까움) + 가끔 딸그락
-      last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02
-      d[i] = last * 3 + (Math.random() < 0.0004 ? (Math.random() - 0.5) * 0.6 : 0)
-    }
-    const src = noiseCtx.createBufferSource()
-    src.buffer = buf
-    src.loop = true
-    const gain = noiseCtx.createGain()
-    gain.gain.value = 0.35
-    src.connect(gain).connect(noiseCtx.destination)
-    src.start()
-    noiseNode = src
-  } catch {
-    /* 소음 없이 */
-  }
-}
-function stopNoise() {
-  try { noiseNode?.stop() } catch { /* 이미 멈춤 */ }
-  noiseNode = null
-}
-
+// 실전 소리(1.25배 + 가게 소음)는 휴대폰과 같은 코드(src/utils/realSound.js)
 function play(slow = false) {
   if (!q) return
   audio?.pause()
   stopNoise()
   audio = new Audio(audioUrl(q.s.id, slow))
-  if (q.real && !slow && !done) {
-    audio.playbackRate = 1.25
-    startNoise()
-    audio.addEventListener('ended', () => setTimeout(stopNoise, 300))
-  }
-  audio.play().catch(() => stopNoise())
+  if (q.real && !slow && !done) playReal(audio)
+  else audio.play().catch(() => {})
 }
 
 function reportStatus() {
@@ -162,14 +116,12 @@ function pickQuestion() {
 
   // 새 문장은 늘 뜻 고르기. 그 밖에는 문장의 단계대로(빈칸을 못 만드는 문장은 떠올리기로)
   const level = mode === 'new' ? 0 : levelOf(s.id)
-  const base = { s, mode, level, real: false, removed: new Set(), wrongs: new Set() }
-  if (level >= 2) {
-    const cloze = clozeFor(s, allSentences, OPTION_COUNT)
-    if (cloze) return { ...base, type: 'cloze', real: level >= 3, cloze, options: cloze.options, answer: cloze.answer }
-    return { ...base, type: 'recall', options: [], answer: s.ko }
-  }
-  if (level === 1) return { ...base, type: 'recall', options: [], answer: s.ko }
-  return { ...base, type: 'choose', options: optionsFor(s, allSentences), answer: s.ko }
+  const cloze = level >= 2 ? clozeFor(s, allSentences, OPTION_COUNT) : null
+  const { type, real } = questionType(level, !!cloze)
+  const base = { s, mode, level, type, real, removed: new Set(), wrongs: new Set() }
+  if (type === 'cloze') return { ...base, cloze, options: cloze.options, answer: cloze.answer }
+  if (type === 'recall') return { ...base, options: [], answer: s.ko }
+  return { ...base, options: optionsFor(s, allSentences), answer: s.ko }
 }
 
 function next() {
@@ -198,10 +150,7 @@ function gradeFirst(correct) {
     grade(q.s.id, correct, points)
     if (!correct) retryIds.add(q.s.id)
   }
-  const before = levelOf(q.s.id)
-  if (correct && hintLevel === 0) setLevel(q.s.id, before + 1)
-  else if (!correct) setLevel(q.s.id, before - 1)
-  levelChange = Math.sign(levelOf(q.s.id) - before)
+  levelChange = levels.update(q.s.id, correct, hintLevel > 0)
   session.total += 1
   session.right += correct ? 1 : 0
   session.points += q.mode === 'practice' ? (points ? Math.max(1, q.level) : 0) : points
