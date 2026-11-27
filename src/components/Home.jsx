@@ -146,6 +146,22 @@ function Home({ navigate, progress }) {
         </div>
       </div>
 
+      {/* 숫자 듣기 */}
+      <div
+        className="card"
+        style={{ marginTop: '0.75rem', cursor: 'pointer', background: 'linear-gradient(135deg, #EF6C00 0%, #FFA726 100%)' }}
+        onClick={() => navigate('numbers')}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ fontSize: '2.5rem' }}>💴</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>숫자 듣기</div>
+            <div style={{ opacity: 0.9 }}>가격·시간·개수·인원 듣고 맞히기</div>
+          </div>
+          <div style={{ fontSize: '1.5rem' }}>▶</div>
+        </div>
+      </div>
+
       {/* 기본 학습 섹션 */}
       <div style={{ marginTop: '1.5rem' }}>
         <h2 style={{ fontSize: '1.1rem', color: 'var(--accent)', marginBottom: '1rem' }}>📚 기본 학습</h2>

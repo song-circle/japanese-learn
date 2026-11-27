@@ -11,6 +11,7 @@ import ListenQuiz from './components/ListenQuiz'
 import ListenGuess from './components/ListenGuess'
 import AiTalk from './components/AiTalk'
 import SpeakGuess from './components/SpeakGuess'
+import NumberListen from './components/NumberListen'
 import Grammar from './components/Grammar'
 import Conversation from './components/Conversation'
 import JlptWords from './components/JlptWords'
@@ -107,6 +108,8 @@ function App() {
         return <TimeAttack onBack={() => navigate('home')} />
       case 'listen-guess':
         return <ListenGuess onBack={() => navigate('home')} />
+      case 'numbers':
+        return <NumberListen onBack={() => navigate('home')} />
       case 'speak-guess':
         return <SpeakGuess onBack={() => navigate('home')} />
       case 'ai-talk':

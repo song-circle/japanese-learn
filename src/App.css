@@ -1477,3 +1477,26 @@ body {
 .course-step.done {
   opacity: 0.6;
 }
+
+/* 숫자 듣기 */
+.num-display {
+  font-size: 1.8rem;
+  font-weight: 800;
+  min-height: 2.6rem;
+  padding: 0.4rem;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.num-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.num-pad .btn {
+  padding: 0.9rem 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
