@@ -2,7 +2,52 @@ import { hiragana } from '../data/hiragana'
 import { katakana } from '../data/katakana'
 import { kanjiData } from '../data/kanji'
 import { allSentences } from '../data/sentences'
-import { todayPlan } from '../utils/listenSrs'
+import { todayPlan, speak, speakSentences } from '../utils/listenSrs'
+import { useState } from 'react'
+import { courseStatus, startCourse, COURSE_DAYS } from '../utils/course'
+
+// 30일 회화 코스: 오늘 할 세 단계를 순서대로 보여 준다
+function CourseCard({ navigate }) {
+  const [c, setC] = useState(courseStatus)
+  if (!c.started) {
+    return (
+      <div className="card course-card">
+        <div style={{ fontSize: '1.3rem', fontWeight: 800 }}>🗓️ 30일 회화 코스</div>
+        <p style={{ margin: '0.4rem 0 0.8rem', opacity: 0.9 }}>
+          하루 20~30분: 듣기 → 말하기 → AI 회화.<br />30일이면 여행 회화 문장 200개를 듣고 말할 수 있어요.
+        </p>
+        <button className="btn" style={{ width: '100%', background: 'white', color: '#6A1B9A', fontWeight: 800 }}
+          onClick={() => { startCourse(); setC(courseStatus()) }}>
+          오늘부터 시작하기
+        </button>
+      </div>
+    )
+  }
+  const firstTodo = c.steps.findIndex((x) => x.todo > 0)
+  return (
+    <div className="card course-card">
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+        <div style={{ fontSize: '1.3rem', fontWeight: 800 }}>🗓️ {c.over ? '코스 완료 후 복습' : `${c.day}일째`}</div>
+        <div style={{ opacity: 0.85 }}>/ {COURSE_DAYS}일 · 문장 {c.learned}/{c.total}</div>
+      </div>
+      <div className="progress-bar" style={{ margin: '0.5rem 0 0.75rem', background: 'rgba(255,255,255,0.25)' }}>
+        <div className="progress-fill" style={{ width: `${(c.learned / c.total) * 100}%`, background: 'white' }} />
+      </div>
+      {c.steps.map((st, i) => (
+        <div key={st.key} className={`course-step${st.todo === 0 ? ' done' : ''}${i === firstTodo ? ' now' : ''}`}
+          onClick={() => navigate(st.page, st.type)}>
+          <div style={{ fontSize: '1.4rem' }}>{st.todo === 0 ? '✅' : st.icon}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700 }}>{i + 1}. {st.title}</div>
+            <div style={{ fontSize: '0.8rem', opacity: 0.85 }}>{st.todo === 0 ? '오늘 끝' : st.detail}</div>
+          </div>
+          <div>▶</div>
+        </div>
+      ))}
+      {c.allDone && <p style={{ margin: '0.6rem 0 0', fontWeight: 700, textAlign: 'center' }}>오늘 코스 끝! 내일 또 만나요 🎉</p>}
+    </div>
+  )
+}
 
 function Home({ navigate, progress }) {
   const hiraganaProgress = progress?.hiragana?.learned?.length || 0
@@ -17,6 +62,8 @@ function Home({ navigate, progress }) {
         <h1>🇯🇵 日本語</h1>
         <p>매일 조금씩 배우는 일본어</p>
       </div>
+
+      <CourseCard navigate={navigate} />
 
       {/* 스트릭 */}
       {streak > 0 && (
@@ -51,6 +98,30 @@ function Home({ navigate, progress }) {
                 <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>듣고 맞히기</div>
                 <div style={{ opacity: 0.9 }}>
                   {todo > 0 ? `오늘 복습 ${plan.reviews.length} · 새 문장 ${plan.news.length}` : '오늘 할 것 끝! 🎉'}
+                </div>
+              </div>
+              <div style={{ fontSize: '1.5rem' }}>▶</div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* 말해서 맞히기 */}
+      {(() => {
+        const sp = speak.todayPlan(speakSentences(allSentences))
+        const todo = sp.reviews.length + sp.news.length
+        return (
+          <div
+            className="card"
+            style={{ marginTop: '0.75rem', cursor: 'pointer', background: 'linear-gradient(135deg, #C2185B 0%, #E91E63 100%)' }}
+            onClick={() => navigate('speak-guess')}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ fontSize: '2.5rem' }}>🎤</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>말해서 맞히기</div>
+                <div style={{ opacity: 0.9 }}>
+                  {todo > 0 ? `한국어 보고 일본어로 · 복습 ${sp.reviews.length} · 새 문장 ${sp.news.length}` : '한국어 보고 일본어로 말하기'}
                 </div>
               </div>
               <div style={{ fontSize: '1.5rem' }}>▶</div>

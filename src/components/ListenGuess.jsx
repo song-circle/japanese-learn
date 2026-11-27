@@ -5,6 +5,7 @@ import {
   todayPlan, grade, retryDone, addBonus, boxOf, dueTomorrow, loadListen,
   NO_OPTIONS_FROM_BOX, NEW_PER_DAY,
 } from '../utils/listenSrs'
+import { markStepDone } from '../utils/course'
 
 // 듣고 맞히기
 //   새 문장 : 상황만 보여 주고 듣기 → 뜻 4개 중 고르기 → 답·한글 발음·단어 풀이
@@ -117,6 +118,12 @@ function ListenGuess({ onBack }) {
     setHints({ pron: false, word: false })
     setShowJa(false)
   }
+
+  // 끝까지 했으면 30일 코스의 오늘 단계를 끝으로 표시
+  const over = queue !== null && index >= queue.length
+  useEffect(() => {
+    if (over) markStepDone('listen')
+  }, [over])
 
   // ---------- 시작 화면 ----------
   if (!queue) {

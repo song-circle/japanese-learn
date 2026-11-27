@@ -10,6 +10,7 @@ import TimeAttack from './components/TimeAttack'
 import ListenQuiz from './components/ListenQuiz'
 import ListenGuess from './components/ListenGuess'
 import AiTalk from './components/AiTalk'
+import SpeakGuess from './components/SpeakGuess'
 import Grammar from './components/Grammar'
 import Conversation from './components/Conversation'
 import JlptWords from './components/JlptWords'
@@ -106,8 +107,11 @@ function App() {
         return <TimeAttack onBack={() => navigate('home')} />
       case 'listen-guess':
         return <ListenGuess onBack={() => navigate('home')} />
+      case 'speak-guess':
+        return <SpeakGuess onBack={() => navigate('home')} />
       case 'ai-talk':
-        return <AiTalk onBack={() => navigate('home')} />
+        // 30일 코스에서 들어오면 learnType에 오늘의 상황 id가 온다
+        return <AiTalk onBack={() => navigate('home')} initialSituationId={learnType} />
       case 'listen':
         return <ListenQuiz onBack={() => navigate('home')} />
       case 'grammar':

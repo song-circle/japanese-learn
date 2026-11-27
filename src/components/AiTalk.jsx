@@ -9,6 +9,7 @@ import {
 } from '../utils/aiTalk'
 import { azureReady, assessOnce, stopAssess, pronErrorText } from '../utils/pronounce'
 import PronScore from './PronScore'
+import { markAiTalk } from '../utils/course'
 
 // AI 회화: 배운 상황 안에서 AI가 점원·상대 역할을 맡고, 나는 말로 대답한다.
 //   AI 대사: 소리 먼저(기기 TTS) → 한글 발음·뜻은 눌러서 보기
@@ -96,15 +97,18 @@ function JaLine({ line, autoPlay = false, reveal = false, koFirst = false }) {
   )
 }
 
-function AiTalk({ onBack }) {
+function AiTalk({ onBack, initialSituationId }) {
   const [settings, setSettings] = useState(loadAiSettings)
   const [editing, setEditing] = useState(!settings.apiKey)
-  const [situation, setSituation] = useState(null)
+  // 30일 코스에서 오늘의 상황을 받아 왔으면 바로 그 상황으로 시작(키가 없으면 설정을 저장한 뒤)
+  const [initSit] = useState(() => situations.find((x) => x.id === initialSituationId) ?? null)
+  const [pending, setPending] = useState(settings.apiKey ? null : initSit)
+  const [situation, setSituation] = useState(settings.apiKey ? initSit : null)
   const [history, setHistory] = useState([]) // [{ role:'user', text, lang }, { role:'assistant', data }]
   const [busy, setBusy] = useState(false)    // 'ai' | 'mic' | false
   const [error, setError] = useState('')
   const [micOk, setMicOk] = useState(true)
-  const [plan, setPlan] = useState(null)     // 이번 대화의 난이도·전개
+  const [plan, setPlan] = useState(() => newPlan(settings)) // 이번 대화의 난이도·전개
   const bottom = useRef(null)
   const azure = azureReady(settings)
 
@@ -133,6 +137,7 @@ function AiTalk({ onBack }) {
     try {
       const data = await talkTurn(settings, situation, next, plan)
       setHistory([...next, { role: 'assistant', data }])
+      if (data.done) markAiTalk()
     } catch (e) {
       setError(errorText(e))
       // 실패한 내 말은 빼서 다시 말할 수 있게
@@ -202,6 +207,11 @@ function AiTalk({ onBack }) {
               saveAiSettings(s)
               setSettings(s)
               setEditing(false)
+              if (pending) {
+                setPending(null)
+                setPlan(newPlan(s))
+                setSituation(pending)
+              }
             }}
           />
         </div>
