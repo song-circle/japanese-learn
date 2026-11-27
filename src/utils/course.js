@@ -1,9 +1,12 @@
-// 30일 회화 코스: 날마다 같은 순서로 세 가지를 한다.
-//   ① 듣고 맞히기(새 문장 7개 + 복습) → ② 말해서 맞히기(들어 본 '나'의 문장을 말로) → ③ AI 회화 한 번
+// 30일 회화 코스: 날마다 같은 순서로 네 가지를 하고, 시간이 되면 보너스 두 가지
+//   ① 듣고 맞히기(새 문장 7개 + 복습) → ② 말해서 맞히기(들어 본 '나'의 문장을 말로)
+//   → ③ 패턴 바꿔 말하기 한 판 → ④ 오늘 상황의 대화 듣기 한 편
+//   보너스: 숫자 듣기 한 판, AI 회화 한 번(끝내지 않아도 '오늘 끝'으로 친다)
 // 진도는 각 기능의 기록으로 판단하고, 코스는 시작일과 단계별로 마지막으로 끝까지 한 날만 저장한다.
 // 복습이 하루 상한(30개)보다 많이 밀리면 할 일이 0이 안 되므로, 그날 한 번 끝까지 했으면 그 단계는 끝으로 친다.
 
 import { allSentences } from '../data/sentences'
+import { dialogues } from '../data/dialogues'
 import { today, todayPlan, loadListen, speak, speakSentences } from './listenSrs'
 
 const KEY = 'japanese-learn-course'
@@ -34,7 +37,8 @@ export function markAiTalk() {
   save(c)
 }
 
-// 듣고 맞히기('listen')·말해서 맞히기('speak')를 그날 끝까지 했을 때 부른다
+// 듣고 맞히기('listen')·말해서 맞히기('speak')·패턴('pattern')·대화('dialogue')·숫자('numbers')를
+// 그날 끝까지 했을 때 부른다
 export function markStepDone(key) {
   const c = load()
   c.doneOn = { ...c.doneOn, [key]: today() }
@@ -79,14 +83,25 @@ export function courseStatus() {
       detail: speakWaiting ? '듣고 맞히기를 하면 말할 문장이 생겨요' : `복습 ${sp.reviews.length} · 새 문장 ${sp.news.length}` },
   ]
   const sit = todaySituation(listenState, lp)
-  steps.push({ key: 'ai', page: 'ai-talk', type: sit.id, title: 'AI 회화 한 번', icon: '🗣️',
-    todo: c.aiDays[t] ? 0 : 1,
-    detail: `${sit.icon} ${sit.name}` })
+  // 오늘 상황의 대화(없으면 아무 대화나)
+  const dlg = dialogues.find((d) => d.situation === sit.id) ?? dialogues[(day - 1) % dialogues.length]
+  const doneToday = (key) => c.doneOn?.[key] === t
+  steps.push(
+    { key: 'pattern', page: 'patterns', title: '패턴 바꿔 말하기 한 판', icon: '🧩',
+      todo: doneToday('pattern') ? 0 : 1, detail: '8문제 · 섞어서나 아무 틀이나' },
+    { key: 'dialogue', page: 'dialogues', type: dlg.id, title: '대화 듣기 한 편', icon: '💬',
+      todo: doneToday('dialogue') ? 0 : 1, detail: dlg.title },
+  )
+  const bonus = [
+    { key: 'numbers', page: 'numbers', title: '숫자 듣기', icon: '💴', todo: doneToday('numbers') ? 0 : 1 },
+    { key: 'ai', page: 'ai-talk', type: sit.id, title: 'AI 회화', icon: '🗣️', todo: c.aiDays[t] ? 0 : 1 },
+  ]
   return {
     started: true,
     day: Math.min(day, COURSE_DAYS),
     over: day > COURSE_DAYS,
     steps,
+    bonus,
     allDone: steps.every((s) => s.todo === 0),
     learned,
     total: allSentences.length,

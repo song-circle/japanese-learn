@@ -170,6 +170,37 @@ const EXPLAIN_SYSTEM = `당신은 한국인에게 일본어 발음을 가르치�
 다음 JSON 하나만 출력합니다.
 {"summary_ko":"...","tips":[{"word":"...","pron":"...","tip_ko":"..."}]}`
 
+// ---------- 뜻이 통했는지 판정 ----------
+// 말하기 채점에서 글자가 모범 답과 많이 다를 때(80% 미만) 한 번 더 묻는다.
+// 실제 회화에서는 표현이 달라도 뜻이 통하면 성공이므로, 일본인 점원이 알아들을 만하면 ok.
+
+const JUDGE_SCHEMA = {
+  type: 'object',
+  properties: {
+    ok: { type: 'boolean' },
+    note_ko: { type: 'string' },
+    better_ja: { type: 'string' },
+    better_pron: { type: 'string' },
+  },
+  required: ['ok', 'note_ko', 'better_ja', 'better_pron'],
+  additionalProperties: false,
+}
+
+const JUDGE_SYSTEM = `당신은 일본 여행 회화를 연습하는 한국인 학습자를 채점합니다. 학습자는 히라가나를 읽지 못하고 귀로만 배우므로 일본어에는 한글 발음을 붙이고, 장음은 '-', 단어 중간의 か·た·ぱ행은 ㄲ·ㄸ·ㅃ로 적습니다(예: 아리가또-).
+
+학습자에게 "이 뜻을 일본어로 말해 보세요"라고 했고, 학습자의 말은 휴대폰 음성 인식으로 받아 적은 것입니다(인식 오류가 섞일 수 있음).
+판정 기준: 그 상황에서 일본인 점원·상대가 학습자의 말을 듣고 뜻을 이해할 수 있으면 ok=true입니다. 모범 답과 표현이 달라도, 조사가 빠지거나 덜 공손해도 뜻이 통하면 ok입니다. 뜻이 다르거나 알아듣기 어려우면 ok=false입니다.
+출력:
+- note_ko: 한국어 한 문장. ok면 무엇이 통했는지와 더 자연스럽게 하는 법, 아니면 무엇이 달랐는지.
+- better_ja / better_pron: 학습자의 말을 살린 더 자연스러운 표현(이미 충분히 자연스러우면 빈 문자열).
+다음 JSON 하나만 출력합니다.
+{"ok":true,"note_ko":"...","better_ja":"","better_pron":""}`
+
+export async function judgeMeaning(settings, { ko, ja, heard }) {
+  const user = `말해야 할 뜻(한국어): ${ko}\n모범 답: ${ja}\n학습자가 말한 것(음성 인식): ${heard}`
+  return callJson(settings, JUDGE_SYSTEM, [{ role: 'user', text: user }], JUDGE_SCHEMA)
+}
+
 export async function explainPronunciation(settings, r) {
   const lines = r.words.map((w) => `- ${w.word}: ${w.score}점${w.error !== 'None' ? ` (${w.error})` : ''}`).join('\n')
   const user = `${r.reference ? `정답 문장: ${r.reference}\n` : ''}기계가 알아들은 말: ${r.text || '(없음)'}

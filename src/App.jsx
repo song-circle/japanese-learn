@@ -13,6 +13,7 @@ import AiTalk from './components/AiTalk'
 import SpeakGuess from './components/SpeakGuess'
 import NumberListen from './components/NumberListen'
 import SpeakPattern from './components/SpeakPattern'
+import DialogueListen from './components/DialogueListen'
 import Grammar from './components/Grammar'
 import Conversation from './components/Conversation'
 import JlptWords from './components/JlptWords'
@@ -109,6 +110,8 @@ function App() {
         return <TimeAttack onBack={() => navigate('home')} />
       case 'listen-guess':
         return <ListenGuess onBack={() => navigate('home')} />
+      case 'dialogues':
+        return <DialogueListen onBack={() => navigate('home')} initialId={learnType} />
       case 'patterns':
         return <SpeakPattern onBack={() => navigate('home')} />
       case 'numbers':

@@ -5,11 +5,14 @@ import { recognitionAvailable, listenOnce, stopListening, bestMatch, PASS } from
 import { azureReady, assessOnce, stopAssess, pronErrorText } from '../utils/pronounce'
 import { loadAiSettings } from '../utils/aiTalk'
 import PronScore from './PronScore'
+import JudgeNote from './JudgeNote'
+import { judgeSpeech } from '../utils/judgeSpeech'
 import { markStepDone } from '../utils/course'
 
 // 말해서 맞히기: 한국어 뜻을 보고 일본어로 말한다 (실제 회화처럼 내가 먼저 떠올려 말하기)
 //   대상   : 듣고 맞히기에서 이미 들어 본 '나'의 문장
-//   채점   : 첫 번째로 말한 것으로 맞음/틀림을 정한다. 알아들은 말이 문장과 80% 이상 같으면 맞음
+//   채점   : 첫 번째로 말한 것으로 맞음/틀림을 정한다. 알아들은 말이 문장과 80% 이상 같으면 맞음,
+//            아니면 AI 키가 있을 때 AI가 '뜻이 통하는지' 한 번 더 판정(표현이 달라도 통하면 맞음)
 //            Azure 키가 있으면 발음 점수도 보여 준다. 그 뒤에는 원어민 음성을 듣고 몇 번이든 다시 말해 볼 수 있다
 //   힌트   : 첫 단어 발음(-2점). 힌트 없이 맞히면 3점
 //   마이크를 못 쓰는 기기: 소리 내어 말한 뒤 답을 보고 스스로 채점
@@ -104,8 +107,10 @@ function SpeakGuess({ onBack }) {
         setAgain(r)
         setState('graded')
       } else {
-        setFirst({ ...r, correct: r.score >= PASS })
-        finish(r.score >= PASS)
+        setState('judging')
+        const judge = await judgeSpeech(settings, s, r.text, r.score)
+        setFirst({ ...r, correct: judge.correct, judge })
+        finish(judge.correct)
       }
     } catch (e) {
       setError(azure ? pronErrorText(e)
@@ -230,7 +235,7 @@ function SpeakGuess({ onBack }) {
         </div>
 
         {/* 말하기 */}
-        {!graded && micOk && (
+        {!graded && micOk && state !== 'judging' && (
           <>
             <button className={`btn mic-btn${state === 'listening' ? ' listening' : ''}`} style={{ width: '100%', marginTop: '1rem', padding: '1rem' }} onClick={say}>
               {state === 'listening' ? '듣는 중… (누르면 멈춤)' : '🎤 일본어로 말하기'}
@@ -250,6 +255,7 @@ function SpeakGuess({ onBack }) {
           </>
         )}
         {error && <p style={{ color: '#F44336', marginTop: '0.75rem' }}>{error}</p>}
+        {state === 'judging' && <p style={{ color: 'var(--text-secondary)', marginTop: '0.75rem' }}>🤖 뜻이 통하는지 확인하는 중…</p>}
 
         {/* 정답·결과 */}
         {graded && (
@@ -261,6 +267,7 @@ function SpeakGuess({ onBack }) {
               </p>
             )}
             {first.text && <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 0.5rem' }}>앱이 알아들은 말: {first.text}</p>}
+            <JudgeNote judge={first.judge} />
             <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
               <button className="btn-secondary btn ai-small" onClick={() => play()}>🔊</button>
               <button className="btn-secondary btn ai-small" onClick={() => play(true)}>🐢</button>

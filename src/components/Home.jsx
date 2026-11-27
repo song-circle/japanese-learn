@@ -7,7 +7,7 @@ import { useState } from 'react'
 import { courseStatus, startCourse, COURSE_DAYS } from '../utils/course'
 import UpdateBox, { UpdateBanner } from './UpdateBox'
 
-// 30일 회화 코스: 오늘 할 세 단계를 순서대로 보여 준다
+// 30일 회화 코스: 오늘 할 네 단계를 순서대로, 그 아래 보너스(숫자 듣기·AI 회화)
 function CourseCard({ navigate }) {
   const [c, setC] = useState(courseStatus)
   if (!c.started) {
@@ -15,7 +15,7 @@ function CourseCard({ navigate }) {
       <div className="card course-card">
         <div style={{ fontSize: '1.3rem', fontWeight: 800 }}>🗓️ 30일 회화 코스</div>
         <p style={{ margin: '0.4rem 0 0.8rem', opacity: 0.9 }}>
-          하루 20~30분: 듣기 → 말하기 → AI 회화.<br />30일이면 여행 회화 문장 200개를 듣고 말할 수 있어요.
+          하루 30분: 듣기 → 말하기 → 패턴 → 대화.<br />30일이면 여행 회화 문장 200개를 듣고 말할 수 있어요.
         </p>
         <button className="btn" style={{ width: '100%', background: 'white', color: '#6A1B9A', fontWeight: 800 }}
           onClick={() => { startCourse(); setC(courseStatus()) }}>
@@ -45,6 +45,14 @@ function CourseCard({ navigate }) {
           <div>▶</div>
         </div>
       ))}
+      <div className="course-bonus">
+        <span style={{ opacity: 0.85 }}>보너스</span>
+        {c.bonus.map((b) => (
+          <button key={b.key} className={`course-chip${b.todo === 0 ? ' done' : ''}`} onClick={() => navigate(b.page, b.type)}>
+            {b.todo === 0 ? '✅' : b.icon} {b.title}
+          </button>
+        ))}
+      </div>
       {c.allDone && <p style={{ margin: '0.6rem 0 0', fontWeight: 700, textAlign: 'center' }}>오늘 코스 끝! 내일 또 만나요 🎉</p>}
     </div>
   )
@@ -68,118 +76,33 @@ function Home({ navigate, progress }) {
 
       <CourseCard navigate={navigate} />
 
-      {/* 스트릭 */}
-      {streak > 0 && (
-        <div 
-          className="card" 
-          style={{ 
-            textAlign: 'center', 
-            background: 'linear-gradient(135deg, #FF5722 0%, #E91E63 100%)',
-            cursor: 'pointer'
-          }}
-          onClick={() => navigate('daily')}
-        >
-          <div style={{ fontSize: '2rem' }}>🔥</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: '700' }}>{streak}일 연속 학습 중!</div>
-          <div style={{ fontSize: '0.9rem', opacity: 0.8 }}>탭해서 목표 & 배지 확인</div>
-        </div>
-      )}
-
-      {/* 듣고 맞히기 (매일 하는 것) */}
-      {(() => {
-        const plan = todayPlan(allSentences)
-        const todo = plan.reviews.length + plan.news.length
-        return (
-          <div
-            className="card"
-            style={{ marginTop: '1rem', cursor: 'pointer', background: 'linear-gradient(135deg, #3F51B5 0%, #2196F3 100%)' }}
-            onClick={() => navigate('listen-guess')}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div style={{ fontSize: '2.5rem' }}>👂</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>듣고 맞히기</div>
-                <div style={{ opacity: 0.9 }}>
-                  {todo > 0 ? `오늘 복습 ${plan.reviews.length} · 새 문장 ${plan.news.length}` : '오늘 할 것 끝! 🎉'}
-                </div>
-              </div>
-              <div style={{ fontSize: '1.5rem' }}>▶</div>
+      {/* 연습: 코스 밖에서도 바로 들어갈 수 있게 6개만 */}
+      <h2 className="home-section">🎯 연습</h2>
+      <div className="practice-grid">
+        {(() => {
+          const lp = todayPlan(allSentences)
+          const sp = speak.todayPlan(speakSentences(allSentences))
+          const tiles = [
+            { page: 'listen-guess', icon: '👂', name: '듣고 맞히기', sub: lp.reviews.length + lp.news.length ? `복습 ${lp.reviews.length} · 새 ${lp.news.length}` : '오늘 끝 🎉', color: '#2962FF' },
+            { page: 'speak-guess', icon: '🎤', name: '말해서 맞히기', sub: sp.reviews.length + sp.news.length ? `복습 ${sp.reviews.length} · 새 ${sp.news.length}` : '한국어 보고 말하기', color: '#D81B60' },
+            { page: 'patterns', icon: '🧩', name: '패턴 말하기', sub: '틀에 단어 바꿔 넣기', color: '#5E35B1' },
+            { page: 'dialogues', icon: '💬', name: '대화 듣기', sub: '흐름으로 듣고 말하기', color: '#00838F' },
+            { page: 'numbers', icon: '💴', name: '숫자 듣기', sub: '가격·시간·개수', color: '#EF6C00' },
+            { page: 'ai-talk', icon: '🗣️', name: 'AI 회화', sub: '상황극으로 주고받기', color: '#00897B' },
+          ]
+          return tiles.map((t) => (
+            <div key={t.page} className="practice-tile" style={{ background: t.color }} onClick={() => navigate(t.page)}>
+              <div style={{ fontSize: '1.6rem' }}>{t.icon}</div>
+              <div style={{ fontWeight: 700 }}>{t.name}</div>
+              <div style={{ fontSize: '0.75rem', opacity: 0.9 }}>{t.sub}</div>
             </div>
-          </div>
-        )
-      })()}
-
-      {/* 말해서 맞히기 */}
-      {(() => {
-        const sp = speak.todayPlan(speakSentences(allSentences))
-        const todo = sp.reviews.length + sp.news.length
-        return (
-          <div
-            className="card"
-            style={{ marginTop: '0.75rem', cursor: 'pointer', background: 'linear-gradient(135deg, #C2185B 0%, #E91E63 100%)' }}
-            onClick={() => navigate('speak-guess')}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div style={{ fontSize: '2.5rem' }}>🎤</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>말해서 맞히기</div>
-                <div style={{ opacity: 0.9 }}>
-                  {todo > 0 ? `한국어 보고 일본어로 · 복습 ${sp.reviews.length} · 새 문장 ${sp.news.length}` : '한국어 보고 일본어로 말하기'}
-                </div>
-              </div>
-              <div style={{ fontSize: '1.5rem' }}>▶</div>
-            </div>
-          </div>
-        )
-      })()}
-
-      {/* 패턴 바꿔 말하기 */}
-      <div
-        className="card"
-        style={{ marginTop: '0.75rem', cursor: 'pointer', background: 'linear-gradient(135deg, #5E35B1 0%, #7E57C2 100%)' }}
-        onClick={() => navigate('patterns')}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ fontSize: '2.5rem' }}>🧩</div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>패턴 바꿔 말하기</div>
-            <div style={{ opacity: 0.9 }}>〜ください · 〜どこですか 틀에 단어 바꿔 넣기</div>
-          </div>
-          <div style={{ fontSize: '1.5rem' }}>▶</div>
-        </div>
+          ))
+        })()}
       </div>
 
-      {/* AI 회화 */}
-      <div
-        className="card"
-        style={{ marginTop: '0.75rem', cursor: 'pointer', background: 'linear-gradient(135deg, #00897B 0%, #26A69A 100%)' }}
-        onClick={() => navigate('ai-talk')}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ fontSize: '2.5rem' }}>🗣️</div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>AI 회화</div>
-            <div style={{ opacity: 0.9 }}>배운 상황에서 AI와 말로 주고받기</div>
-          </div>
-          <div style={{ fontSize: '1.5rem' }}>▶</div>
-        </div>
-      </div>
-
-      {/* 숫자 듣기 */}
-      <div
-        className="card"
-        style={{ marginTop: '0.75rem', cursor: 'pointer', background: 'linear-gradient(135deg, #EF6C00 0%, #FFA726 100%)' }}
-        onClick={() => navigate('numbers')}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ fontSize: '2.5rem' }}>💴</div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>숫자 듣기</div>
-            <div style={{ opacity: 0.9 }}>가격·시간·개수·인원 듣고 맞히기</div>
-          </div>
-          <div style={{ fontSize: '1.5rem' }}>▶</div>
-        </div>
-      </div>
+      {/* 예전 기능(가나·한자·단어·게임·여행·맛집·통계)은 접어 둔다 */}
+      <details className="more-box">
+        <summary>📦 더 보기 (히라가나·한자·단어·게임·맛집·통계{streak > 0 ? ` · 🔥 ${streak}일 연속` : ''})</summary>
 
       {/* 기본 학습 섹션 */}
       <div style={{ marginTop: '1.5rem' }}>
@@ -401,6 +324,8 @@ function Home({ navigate, progress }) {
           }
         </p>
       </div>
+
+      </details>
 
       <UpdateBox />
 

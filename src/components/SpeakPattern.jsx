@@ -5,9 +5,13 @@ import { azureReady, assessOnce, stopAssess, pronErrorText } from '../utils/pron
 import { loadAiSettings } from '../utils/aiTalk'
 import { shuffle } from '../utils/distractors'
 import PronScore from './PronScore'
+import { markStepDone } from '../utils/course'
+import JudgeNote from './JudgeNote'
+import { judgeSpeech } from '../utils/judgeSpeech'
 
 // 패턴 바꿔 말하기: '〜をください' 같은 틀에 단어를 바꿔 넣어 말한다.
-//   한국어(물 주세요)를 보고 일본어로 말하면 첫 시도로 채점(80% 이상 통하면 맞음). Azure 키가 있으면 발음 점수도
+//   한국어(물 주세요)를 보고 일본어로 말하면 첫 시도로 채점(80% 이상 같으면 맞음, 아니면 AI가 뜻이 통하는지 판정).
+//   Azure 키가 있으면 발음 점수도
 //   힌트: 틀(〜오 쿠다사이) → 단어(오미즈) 순서로 하나씩. 정답을 본 뒤 원어민 음성을 듣고 다시 말해 볼 수 있다
 //   기록: 문장마다 맞힌 횟수(localStorage). 틀 목록에 '말해 본 단어 수'로 보여 준다
 
@@ -135,7 +139,9 @@ function SpeakPattern({ onBack }) {
         setAgain(r)
         setState('graded')
       } else {
-        finish({ ...r, correct: r.score >= PASS })
+        setState('judging')
+        const judge = await judgeSpeech(settings, s, r.text, r.score)
+        finish({ ...r, correct: judge.correct, judge })
       }
     } catch (e) {
       setError(azure ? pronErrorText(e)
@@ -201,6 +207,7 @@ function SpeakPattern({ onBack }) {
 
   // ---------- 끝 ----------
   if (!s) {
+    markStepDone('pattern')
     return (
       <div className="fade-in">
         {header('패턴 말하기 끝', null, back)}
@@ -245,7 +252,7 @@ function SpeakPattern({ onBack }) {
           )}
         </div>
 
-        {!graded && micOk && (
+        {!graded && micOk && state !== 'judging' && (
           <>
             <button className={`btn mic-btn${state === 'listening' ? ' listening' : ''}`} style={{ width: '100%', marginTop: '1rem', padding: '1rem' }} onClick={say}>
               {state === 'listening' ? '듣는 중… (누르면 멈춤)' : '🎤 일본어로 말하기'}
@@ -265,6 +272,7 @@ function SpeakPattern({ onBack }) {
           </>
         )}
         {error && <p style={{ color: '#F44336', marginTop: '0.75rem' }}>{error}</p>}
+        {state === 'judging' && <p style={{ color: 'var(--text-secondary)', marginTop: '0.75rem' }}>🤖 뜻이 통하는지 확인하는 중…</p>}
 
         {graded && (
           <div className="card" style={{ marginTop: '1rem' }}>
@@ -275,6 +283,7 @@ function SpeakPattern({ onBack }) {
               </p>
             )}
             {first.text && <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 0.5rem' }}>앱이 알아들은 말: {first.text}</p>}
+            <JudgeNote judge={first.judge} />
             <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
               <button className="btn-secondary btn ai-small" onClick={() => play()}>🔊</button>
               <button className="btn-secondary btn ai-small" onClick={() => play(true)}>🐢</button>

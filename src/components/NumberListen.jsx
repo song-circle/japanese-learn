@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { KINDS, makeQuestion } from '../utils/numberJa'
 import { speakJa, stopSpeaking } from '../utils/ttsJa'
+import { markStepDone } from '../utils/course'
 
 // 숫자 듣기: 점원이 말하는 가격·시간·개수·인원을 듣고 숫자로 입력한다.
 //   한 번에 10문제, 매번 다른 숫자. 소리는 기기 TTS(가나로 넘겨서 3百·4時 같은 예외도 바르게 읽음)
@@ -78,6 +79,7 @@ function NumberListen({ onBack }) {
       const s = loadStats()
       const updated = { rounds: s.rounds + 1, right: s.right + score, total: s.total + ROUND }
       localStorage.setItem(KEY, JSON.stringify(updated))
+      markStepDone('numbers')
       setStats(updated)
       setN(done)
       setQ(null)
