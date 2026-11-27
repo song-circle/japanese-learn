@@ -7,8 +7,9 @@ android {
         applicationId "com.songwh.japaneselearn"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // GitHub 빌드에서 -PappVersionCode=<빌드 번호> -PappVersionName=1.0.<빌드 번호>로 넘긴다(릴리스 이름과 같게)
+        versionCode (project.findProperty('appVersionCode') ?: '1').toInteger()
+        versionName project.findProperty('appVersionName') ?: '1.0'
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
