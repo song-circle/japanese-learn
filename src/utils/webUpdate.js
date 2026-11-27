@@ -45,7 +45,8 @@ export async function checkUpdate() {
   const feed = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
   if (!(feed.version > WEB_VERSION)) return { state: 'latest' }
   if ((feed.minApk ?? 0) > (await apkNumber())) return { state: 'need-apk', version: feed.version }
-  const bundle = await CapacitorUpdater.download({ url: feed.url, version: String(feed.version) })
+  // checksum: 플러그인이 받은 zip의 SHA-256을 확인한다(없으면 받기를 거부함)
+  const bundle = await CapacitorUpdater.download({ url: feed.url, version: String(feed.version), checksum: feed.checksum ?? '' })
   // 다음에 앱을 켜거나 다시 열 때 바뀐다. 바로 바꾸려면 applyNow
   await CapacitorUpdater.next({ id: bundle.id })
   return { state: 'downloaded', version: feed.version, id: bundle.id }

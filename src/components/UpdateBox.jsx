@@ -40,7 +40,8 @@ function UpdateBox() {
       setInfo(r)
       setState(r.state)
     } catch (e) {
-      setInfo({ error: String(e?.message ?? e) })
+      // 플러그인 오류는 원인이 data.message나 code에 따로 있을 때가 있어 함께 보여 준다
+      setInfo({ error: [e?.message, e?.code, e?.data?.message].filter(Boolean).join(' / ') || String(e) })
       setState('error')
     }
   }
@@ -67,7 +68,7 @@ function UpdateBox() {
           </button>
           {state === 'latest' && <p style={{ margin: '0.5rem 0 0', color: '#4CAF50' }}>지금이 최신 버전이에요 👍</p>}
           {state === 'web' && <p style={{ margin: '0.5rem 0 0', color: 'var(--text-secondary)' }}>휴대폰 앱에서만 쓸 수 있어요.</p>}
-          {state === 'error' && <p style={{ margin: '0.5rem 0 0', color: '#F44336' }}>확인하지 못했어요. 인터넷 연결을 확인해 주세요. ({info.error.slice(0, 80)})</p>}
+          {state === 'error' && <p style={{ margin: '0.5rem 0 0', color: '#F44336' }}>업데이트하지 못했어요. ({info.error.slice(0, 200)})</p>}
         </>
       )}
     </div>

@@ -130,7 +130,9 @@ jobs:
         N=${{ github.run_number }}
         (cd dist && zip -qr ../web-$N.zip .)
         MIN=$(tr -dc '0-9' < android/min-apk.txt)
-        echo "{\"version\": $N, \"minApk\": ${MIN:-0}, \"url\": \"https://github.com/${{ github.repository }}/releases/download/web-latest/web-$N.zip\"}" > version.json
+        # 업데이트 플러그인은 받은 zip의 SHA-256 값이 맞아야 받아들인다
+        SUM=$(sha256sum web-$N.zip | cut -d' ' -f1)
+        echo "{\"version\": $N, \"minApk\": ${MIN:-0}, \"checksum\": \"$SUM\", \"url\": \"https://github.com/${{ github.repository }}/releases/download/web-latest/web-$N.zip\"}" > version.json
         cat version.json
         gh release delete web-latest --yes --cleanup-tag || true
         gh release create web-latest web-$N.zip version.json \
