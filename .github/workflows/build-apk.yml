@@ -3,6 +3,10 @@ name: Build Android APK
 on:
   push:
     branches: [ main, master ]
+    # PC 앱(desktop/)만 바뀌었을 때는 APK를 다시 만들지 않는다
+    paths-ignore:
+      - 'desktop/**'
+      - '.github/workflows/build-desktop.yml'
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:

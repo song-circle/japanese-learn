@@ -30,3 +30,7 @@ android/local.properties
 *.njsproj
 *.sln
 *.sw?
+
+# PC 앱
+desktop/build
+desktop/release

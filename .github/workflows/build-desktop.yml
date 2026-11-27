@@ -1,0 +1,56 @@
+name: Build PC App
+
+# PC 듣기 연습 앱(desktop/)을 Windows 설치 파일로 만들어 릴리스에 올린다.
+# 문장 데이터·복습 로직·음성이 바뀌어도 다시 만든다(PC 앱이 휴대폰 앱의 것을 그대로 쓰므로).
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'desktop/**'
+      - 'src/data/sentences.js'
+      - 'src/utils/listenSrs.js'
+      - 'public/audio/**'
+      - '.github/workflows/build-desktop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Install
+      run: npm ci
+
+    - name: Set version
+      run: npm version 1.0.${{ github.run_number }} --no-git-tag-version
+
+    - name: Build installer
+      run: npm run dist
+
+    - name: Create release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: desktop-v1.0.${{ github.run_number }}
+        name: PC 듣기 연습 v1.0.${{ github.run_number }}
+        body: |
+          ## 🖥️ PC 듣기 연습 (Windows)
+
+          아래 `japanese-listen-setup-*.exe`를 받아 실행하면 설치되고 바로 켜집니다.
+          - `Ctrl+Alt+J` (또는 트레이 아이콘 클릭): 일본어 음성 + 오른쪽 아래 보기 4개
+          - 1~4 고르기 · R 다시 듣기 · S 느리게 · H 힌트 · Space 다음 · Esc 닫기
+          - 서명되지 않은 프로그램이라 처음 실행할 때 'Windows의 PC 보호' 창이 뜨면 '추가 정보' → '실행'
+        files: desktop/release/japanese-listen-setup-*.exe
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

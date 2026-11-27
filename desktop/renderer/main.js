@@ -1,0 +1,238 @@
+// 오른쪽 아래 작은 창: 소리 듣고 뜻 고르기
+//   문제 순서는 휴대폰 듣고 맞히기와 같다(복습할 것 먼저, 그다음 오늘의 새 문장).
+//   오늘 할 것을 다 했으면 배운 문장에서 골라 연습만 한다(복습 일정은 바꾸지 않음).
+//   힌트: 느리게(무료) · 한글 발음 · 첫 단어 뜻 · 보기 둘 지우기(각 -1점). 힌트 없이 맞히면 3점
+//   키보드: 1~4 고르기 · R 다시 듣기 · S 느리게 · H 힌트 · Space/Enter 다음 · Esc 닫기
+
+import './style.css'
+import { allSentences } from '../../src/data/sentences.js'
+import { todayPlan, grade, loadListen, addBonus } from '../../src/utils/listenSrs.js'
+
+const card = document.getElementById('card')
+const desk = window.desk
+
+const audioUrl = (id, slow) => `./audio/${id}${slow ? '.slow' : ''}.mp3`
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+const shuffle = (xs) => {
+  const a = [...xs]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
+// 오답 보기: 같은 상황의 다른 문장 뜻을 먼저, 모자라면 다른 상황에서
+function optionsFor(s) {
+  const same = shuffle(allSentences.filter((x) => x.situation === s.situation && x.id !== s.id))
+  const other = shuffle(allSentences.filter((x) => x.situation !== s.situation))
+  const wrong = [...same, ...other].map((x) => x.ko).filter((ko, i, arr) => ko !== s.ko && arr.indexOf(ko) === i).slice(0, 3)
+  return shuffle([s.ko, ...wrong])
+}
+
+const subj = (word) => {
+  const c = word.charCodeAt(word.length - 1) - 0xac00
+  return word + (c >= 0 && c < 11172 && c % 28 !== 0 ? '이' : '가')
+}
+const whoText = (who) => (who === '나' ? '내가 하는 말' : `${subj(who)} 하는 말`)
+
+// ---------- 상태 ----------
+let q = null        // { s, mode: 'review' | 'new' | 'practice', options, removed: Set }
+let picked = null   // 고른 보기
+let hints = { pron: false, word: false, fifty: false }
+let audio = null
+let recent = []     // 방금 본 문장은 바로 다시 내지 않는다
+let session = { right: 0, total: 0, points: 0 }
+let hideTimer = null
+
+function play(slow = false) {
+  if (!q) return
+  audio?.pause()
+  audio = new Audio(audioUrl(q.s.id, slow))
+  audio.play().catch(() => {})
+}
+
+function reportStatus() {
+  const p = todayPlan(allSentences)
+  const left = p.reviews.length + p.news.length
+  desk.status(left ? `오늘 남은 것: 복습 ${p.reviews.length} · 새 문장 ${p.news.length}` : '오늘 할 것 끝! (지금은 연습 문제)')
+}
+
+function pickQuestion() {
+  const p = todayPlan(allSentences)
+  const notRecent = (x) => !recent.includes(x.id)
+  let s = p.reviews.find(notRecent) ?? p.news.find(notRecent)
+  let mode = s && p.reviews.includes(s) ? 'review' : 'new'
+  if (!s) {
+    // 오늘 할 것 끝: 배운 문장에서 아무거나 (하나도 안 배웠으면 전체에서)
+    const learned = loadListen().cards
+    const pool = allSentences.filter((x) => learned[x.id] && notRecent(x))
+    s = shuffle(pool.length ? pool : allSentences.filter(notRecent))[0]
+    mode = 'practice'
+  }
+  recent = [s.id, ...recent].slice(0, 3)
+  return { s, mode, options: optionsFor(s), removed: new Set() }
+}
+
+function next() {
+  clearTimeout(hideTimer)
+  q = pickQuestion()
+  picked = null
+  hints = { pron: false, word: false, fifty: false }
+  render()
+  play()
+}
+
+function choose(opt) {
+  if (!q || picked !== null || q.removed.has(opt)) return
+  picked = opt
+  const correct = opt === q.s.ko
+  const used = (hints.pron ? 1 : 0) + (hints.word ? 1 : 0) + (hints.fifty ? 1 : 0)
+  const points = correct ? Math.max(1, 3 - used) : 0
+  if (q.mode === 'practice') {
+    if (points) addBonus(1) // 연습은 일정은 그대로, 맞히면 1점만
+  } else {
+    grade(q.s.id, correct, points)
+  }
+  session.total += 1
+  session.right += correct ? 1 : 0
+  session.points += q.mode === 'practice' ? (points ? 1 : 0) : points
+  render()
+  reportStatus()
+  // 맞혔으면 잠시 뒤 저절로 닫힌다(창 위에 마우스가 있으면 그대로)
+  if (correct) hideTimer = setTimeout(() => { if (!card.matches(':hover')) desk.hide() }, 6000)
+}
+
+function hint(kind) {
+  if (!q || picked !== null || hints[kind]) return
+  hints[kind] = true
+  if (kind === 'fifty') {
+    const wrong = shuffle(q.options.filter((o) => o !== q.s.ko)).slice(0, 2)
+    wrong.forEach((o) => q.removed.add(o))
+  }
+  render()
+}
+
+// 다음에 쓸 힌트 (H 키)
+function nextHint() {
+  if (!hints.pron) hint('pron')
+  else if (!hints.word && q.s.words.length) hint('word')
+  else if (!hints.fifty) hint('fifty')
+}
+
+// ---------- 화면 ----------
+function render() {
+  if (!q) return
+  const s = q.s
+  const answered = picked !== null
+  const correct = picked === s.ko
+  const label = q.mode === 'new' ? '<span class="tag">새 문장</span>'
+    : q.mode === 'review' ? '복습' : '연습 (오늘 할 것 끝)'
+  const scene = q.mode === 'new' || answered ? `${s.icon} ${esc(s.scene)} · ${whoText(s.who)}` : '🎧 소리만 듣고 뜻을 골라 보세요'
+
+  card.innerHTML = `
+    <div class="top">
+      <span>👂 ${label}</span>
+      <span class="grow"></span>
+      <span>${session.right}/${session.total} · ${session.points}점</span>
+      <button class="x" data-act="close" title="닫기 (Esc)">✕</button>
+    </div>
+    <div class="scene">${scene}</div>
+    <div class="row">
+      <button class="small play" data-act="play">🔊 다시 듣기 <kbd>R</kbd></button>
+      <button class="small" data-act="slow">🐢 느리게 <kbd>S</kbd></button>
+      ${answered ? '' : `
+        ${hints.pron ? '' : '<button class="small" data-act="h-pron">한글 발음 -1</button>'}
+        ${hints.word || !s.words.length ? '' : '<button class="small" data-act="h-word">첫 단어 뜻 -1</button>'}
+        ${hints.fifty ? '' : '<button class="small" data-act="h-fifty">보기 둘 지우기 -1</button>'}
+      `}
+    </div>
+    ${!answered && hints.pron ? `<div class="hint">${esc(s.pron)}</div>` : ''}
+    ${!answered && hints.word ? `<div class="hint"><span class="sub">첫 단어</span> ${esc(s.words[0][1])} = ${esc(s.words[0][2])}</div>` : ''}
+    <div class="options">
+      ${q.options.map((o, i) => {
+        let cls = 'opt'
+        if (answered && o === s.ko) cls += ' correct'
+        else if (answered && o === picked) cls += ' wrong'
+        else if (q.removed.has(o)) cls += ' gone'
+        return `<button class="${cls}" data-opt="${i}" ${answered || q.removed.has(o) ? 'disabled' : ''}><span class="k">${i + 1}</span>${esc(o)}</button>`
+      }).join('')}
+    </div>
+    ${answered ? `
+      <div class="result">
+        <div class="verdict ${correct ? 'ok' : 'ng'}">${correct ? '정답! 🎉' : '아쉬워요'}</div>
+        <div class="pron">${esc(s.pron)}</div>
+        <div class="ja">${esc(s.ja)} — ${esc(s.ko)}</div>
+        ${s.words.length ? `<ul class="words">${s.words.map(([, p, k]) => `<li>${esc(p)} — ${esc(k)}</li>`).join('')}</ul>` : ''}
+        <div class="row">
+          <button class="small play" data-act="next">다음 문제 <kbd>Space</kbd></button>
+          <button class="small" data-act="close">닫기 <kbd>Esc</kbd></button>
+        </div>
+      </div>` : `<div class="keys">1~4 고르기 · H 힌트 · Esc 닫기</div>`}
+  `
+  fit()
+}
+
+function fit() {
+  requestAnimationFrame(() => desk.resize(card.offsetHeight))
+}
+
+// 처음 실행했을 때만 사용법을 보여 준다(자동 실행 때마다 뜨지 않게)
+async function welcome() {
+  if (localStorage.getItem('desk-welcomed')) return
+  localStorage.setItem('desk-welcomed', '1')
+  desk.show()
+  const key = await desk.hotkey()
+  card.innerHTML = `
+    <div class="top"><span>👂 日本語 듣기</span><span class="grow"></span><button class="x" data-act="close">✕</button></div>
+    <div class="welcome">
+      <p><b>${key ? `<kbd>${esc(key)}</kbd>` : '오른쪽 아래 트레이 아이콘'}</b>을 누르면 일본어가 들리고 여기에 보기 4개가 떠요.</p>
+      <p>트레이 아이콘을 눌러도 되고, 오른쪽 클릭하면 'Windows 시작할 때 자동 실행'을 켤 수 있어요.</p>
+      <p>기록은 이 PC에만 쌓여요(휴대폰과 따로).</p>
+    </div>
+    <div class="row"><button class="small play" data-act="next">지금 한 문제 풀기</button></div>
+  `
+  fit()
+}
+
+// ---------- 입력 ----------
+card.addEventListener('click', (e) => {
+  const b = e.target.closest('button')
+  if (!b) return
+  if (b.dataset.opt !== undefined) return choose(q.options[Number(b.dataset.opt)])
+  const act = b.dataset.act
+  if (act === 'close') desk.hide()
+  else if (act === 'play') play()
+  else if (act === 'slow') play(true)
+  else if (act === 'next') next()
+  else if (act === 'h-pron') hint('pron')
+  else if (act === 'h-word') hint('word')
+  else if (act === 'h-fifty') hint('fifty')
+})
+
+window.addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase()
+  if (k === 'escape') return desk.hide()
+  if (!q) {
+    if (k === ' ' || k === 'enter') next()
+    return
+  }
+  if (picked === null && ['1', '2', '3', '4'].includes(k)) return choose(q.options[Number(k) - 1])
+  if (k === 'r') return play()
+  if (k === 's') return play(true)
+  if (k === 'h') return nextHint()
+  if (picked !== null && (k === ' ' || k === 'enter')) {
+    e.preventDefault()
+    next()
+  }
+})
+
+card.addEventListener('mouseenter', () => clearTimeout(hideTimer))
+
+// 단축키·트레이: 풀기 전 문제가 있으면 다시 듣기, 아니면 새 문제
+desk.onAsk(() => {
+  if (q && picked === null) play()
+  else next()
+})
+desk.onWelcome(welcome)
+reportStatus()
