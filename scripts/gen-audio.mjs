@@ -9,6 +9,7 @@ import { allSentences } from '../src/data/sentences.js'
 import { patternSentences } from '../src/data/patterns.js'
 import { variantClips, voiceClips } from '../src/data/variants.js'
 import { numberBank } from '../src/data/numberBank.js'
+import { koClips, lessonClips, KO_VOICE } from '../src/data/lessonClips.js'
 
 const KEY = process.env.AZURE_SPEECH_KEY
 const REGION = process.env.AZURE_SPEECH_REGION
@@ -42,7 +43,8 @@ async function synth(text, voice, rate, file) {
 }
 
 async function synthOnce(text, voice, rate, file) {
-  const ssml = `<speak version="1.0" xml:lang="ja-JP"><voice name="${voice}"><prosody rate="${rate}">${escape(text)}</prosody></voice></speak>`
+  const lang = voice.slice(0, 5) // ja-JP / ko-KR
+  const ssml = `<speak version="1.0" xml:lang="${lang}"><voice name="${voice}"><prosody rate="${rate}">${escape(text)}</prosody></voice></speak>`
   const res = await fetch(`https://${REGION}.tts.speech.microsoft.com/cognitiveservices/v1`, {
     method: 'POST',
     headers: {
@@ -81,6 +83,14 @@ for (const q of numberBank) {
   const file = path.join(outDir, `${q.id}.mp3`)
   if (!force && fs.existsSync(file)) continue
   await synth(q.ja, 'ja-JP-NanamiNeural', '0%', file)
+  made++
+  console.log('made', path.basename(file))
+}
+// PC 오디오 수업: 문장 뜻(한국어)과 안내 말. 한국어 목소리
+for (const c of [...koClips, ...lessonClips]) {
+  const file = path.join(outDir, `${c.id}.mp3`)
+  if (!force && fs.existsSync(file)) continue
+  await synth(c.text, KO_VOICE, '0%', file)
   made++
   console.log('made', path.basename(file))
 }

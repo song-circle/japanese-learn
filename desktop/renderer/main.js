@@ -18,6 +18,9 @@
 //
 //   키보드: (입력칸) Enter 확인 · F2 포기  /  (그 밖) 1~5 고르기 · R 다시 듣기 · S 느리게 · H 힌트
 //           0 포기 · N 새 문장 더 · Space/Enter 다음 · Esc 닫기
+//
+//   오디오 수업(lesson.js): 트레이 메뉴 '🎧 오디오 수업'. 화면을 안 봐도 되는 5·10·15분 듣기·말하기 수업.
+//   창을 닫아도 소리는 계속. Space 일시정지 · → 다음 문장 · T 자막 · X 끝내기
 
 import './style.css'
 import { allSentences } from '../../src/data/sentences.js'
@@ -29,6 +32,8 @@ import { playReal, stopNoise } from '../../src/utils/realSound.js'
 import { pickSound, voiceName } from '../../src/utils/realVariant.js'
 import { compareHangul, TYPE_PASS } from '../../src/utils/hangulCompare.js'
 import { makeExtra, checkNumber } from './extras.js'
+import { buildLesson, createPlayer } from './lesson.js'
+import { patternSentences } from '../../src/data/patterns.js'
 
 // 휴대폰과 같은 저장 방식이지만 PC는 하루 종일 켜 두므로 새 문장을 하루 20개까지 낸다(휴대폰은 7개)
 const KEY = 'japanese-learn-listen'
@@ -90,6 +95,7 @@ const shownCount = new Map() // 이번에 켠 뒤 문장별로 몇 번 나왔는
 let session = { right: 0, total: 0, points: 0 }
 let hideTimer = null
 let levelChange = 0  // 이번 문제로 단계가 오르면 1, 내려가면 -1
+let lesson = null    // 오디오 수업 중이면 { player, items, st, subs, minutes }
 
 // ---------- 소리 ----------
 // 여러 마디(대화)를 이어서 재생. 느린 파일이 없으면 재생 속도로 느리게
@@ -320,6 +326,94 @@ function moreNew() {
   next()
 }
 
+// ---------- 오디오 수업 ----------
+function startLesson(minutes) {
+  lesson?.player.stop()
+  clearTimeout(seqTimer)
+  clearTimeout(hideTimer)
+  audio?.pause()
+  stopNoise()
+  const items = buildLesson({
+    minutes,
+    plan: srs().todayPlan(allSentences),
+    learned: srs().load().cards,
+    levels: loadLevels(),
+    allSentences,
+    patternSentences,
+  })
+  lesson = { items, minutes, subs: false, st: null }
+  lesson.player = createPlayer(items, (st) => {
+    if (!lesson) return
+    lesson.st = st
+    if (st.done) finishLesson()
+    renderLesson()
+  })
+  lesson.player.start()
+}
+
+function finishLesson() {
+  lesson.player.endClip()
+  srs().addBonus(lesson.items.length)
+  try {
+    const log = JSON.parse(localStorage.getItem('desk-lessons') || '[]')
+    log.push({ date: today(), minutes: lesson.minutes, items: lesson.items.length })
+    localStorage.setItem('desk-lessons', JSON.stringify(log.slice(-100)))
+  } catch { /* 기록 실패는 무시 */ }
+  desk.status(`🎧 오늘 오디오 수업 ${lesson.minutes}분 끝`)
+}
+
+function stopLesson() {
+  lesson?.player.stop()
+  lesson = null
+  q = null
+  next()
+}
+
+const PHASE_TEXT = {
+  prompt: (it) => (it.role === 'speak' ? '🇰🇷 한국어를 들어 보세요' : '🇯🇵 일본어를 들어 보세요'),
+  think: (it) => (it.role === 'speak' ? '🗣️ 일본어로 말해 보세요 (속으로라도)' : '🧠 무슨 뜻일까요?'),
+  answer: () => '✅ 정답',
+  repeat: () => '🔁 따라 해 보세요',
+}
+
+function renderLesson() {
+  const st = lesson.st
+  const total = lesson.items.length
+  if (st?.done) {
+    card.innerHTML = `
+      <div class="top"><span>🎧 오디오 수업 ${lesson.minutes}분</span><span class="grow"></span><button class="x" data-act="close">✕</button></div>
+      <div class="verdict ok" style="margin-top:8px">수업 끝! 🎉 ${total}문장 · +${total}점</div>
+      <ul class="words lesson-list">${lesson.items.map(({ s }) => `<li><b>${esc(s.pron)}</b> — ${esc(s.ko)}</li>`).join('')}</ul>
+      <div class="row">
+        <button class="small play" data-act="lesson-end">문제 풀기로 돌아가기</button>
+        <button class="small" data-act="close">닫기 <kbd>Esc</kbd></button>
+      </div>`
+    fit()
+    return
+  }
+  const i = st?.index ?? 0
+  const it = st?.item ?? lesson.items[0]
+  const showAnswer = st && (st.phase === 'answer' || st.phase === 'repeat')
+  card.innerHTML = `
+    <div class="top">
+      <span>🎧 오디오 수업 ${lesson.minutes}분 · ${it.role === 'speak' ? '말하기' : '듣기'}</span>
+      <span class="grow"></span>
+      <span>${i + 1} / ${total}</span>
+      <button class="x" data-act="close" title="창만 닫기 (소리는 계속)">✕</button>
+    </div>
+    <div class="lesson-bar"><div style="width:${(i / total) * 100}%"></div></div>
+    <div class="lesson-phase">${st?.paused ? '⏸ 일시정지' : PHASE_TEXT[st?.phase ?? 'prompt'](it)}</div>
+    ${lesson.subs ? `<div class="hint">${esc(it.s.ko)}${showAnswer ? `<br><b>${esc(it.s.pron)}</b>` : ''}</div>` : ''}
+    <div class="row">
+      <button class="small play" data-act="lesson-toggle">${st?.paused ? '▶ 계속' : '⏸ 일시정지'} <kbd>Space</kbd></button>
+      <button class="small" data-act="lesson-skip">⏭ 다음 <kbd>→</kbd></button>
+      <button class="small" data-act="lesson-subs">자막 ${lesson.subs ? '끄기' : '켜기'} <kbd>T</kbd></button>
+      <button class="small" data-act="lesson-stop">■ 끝내기 <kbd>X</kbd></button>
+    </div>
+    <div class="keys">창을 닫아도(✕·Esc) 수업 소리는 계속 나와요. 이어폰을 끼고 다른 일을 해도 돼요.</div>`
+  fit()
+}
+
 // ---------- 화면 ----------
 const HINT_NAME = { pron: '발음', word: '첫 단어', first: '첫 단어', meaning: '뜻', options: '보기 보기', fifty: '보기 둘 지우기' }
 
@@ -357,6 +451,7 @@ function answerHtml() {
 }
 
 function render() {
+  if (lesson) return renderLesson()
   if (!q) return
   const s = q.s
   const opened = q.hints.slice(0, hintLevel)
@@ -481,6 +576,10 @@ card.addEventListener('click', (e) => {
   else if (act === 'self-right') selfGrade(true)
   else if (act === 'self-wrong') selfGrade(false)
   else if (act === 'more') moreNew()
+  else if (act === 'lesson-toggle') lesson?.player.toggle()
+  else if (act === 'lesson-skip') lesson?.player.skip()
+  else if (act === 'lesson-subs') { lesson.subs = !lesson.subs; renderLesson() }
+  else if (act === 'lesson-stop' || act === 'lesson-end') stopLesson()
 })
 
 window.addEventListener('keydown', (e) => {
@@ -491,6 +590,17 @@ window.addEventListener('keydown', (e) => {
     if (k === 'enter' && !e.isComposing) { e.preventDefault(); submit() }
     else if (k === 'f2') giveUp()
     else if (k === 'f1') { e.preventDefault(); nextHint() }
+    return
+  }
+  if (lesson) {
+    if (lesson.st?.done) {
+      if (k === ' ' || k === 'enter') stopLesson()
+      return
+    }
+    if (k === ' ') { e.preventDefault(); lesson.player.toggle() }
+    else if (k === 'arrowright') lesson.player.skip()
+    else if (k === 't') { lesson.subs = !lesson.subs; renderLesson() }
+    else if (k === 'x') stopLesson()
     return
   }
   if (!q) {
@@ -517,8 +627,11 @@ card.addEventListener('mouseenter', () => clearTimeout(hideTimer))
 
 // 단축키·트레이: 풀기 전 문제가 있으면 다시 듣기, 아니면 새 문제
 desk.onAsk(() => {
+  // 오디오 수업 중이면 수업 화면만 다시 보여 준다
+  if (lesson) return renderLesson()
   if (q && !done) play()
   else next()
 })
+desk.onLesson((minutes) => startLesson(minutes))
 desk.onWelcome(welcome)
 reportStatus()

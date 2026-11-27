@@ -73,6 +73,13 @@ function ask() {
   win.focus()
 }
 
+// 오디오 수업 시작: 창을 띄우고 renderer에 몇 분짜리인지 알린다(창을 닫아도 소리는 계속)
+function startLesson(minutes) {
+  if (!win) return
+  win.webContents.send('lesson', minutes)
+  if (!win.isVisible()) win.show()
+}
+
 function updateTray() {
   if (!tray) return
   tray.setToolTip(`日本語 듣기${hotkey ? ` (${hotkey.replace('Control', 'Ctrl')})` : ''}${status ? `\n${status}` : ''}`)
@@ -80,6 +87,10 @@ function updateTray() {
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: `문제 풀기${hotkey ? `  (${hotkey.replace('Control', 'Ctrl')})` : ''}`, click: ask },
     { label: status || '오늘 진도 불러오는 중', enabled: false },
+    {
+      label: '🎧 오디오 수업 (화면 안 봐도 되는 듣기·말하기)',
+      submenu: [5, 10, 15].map((m) => ({ label: `${m}분`, click: () => startLesson(m) })),
+    },
     { type: 'separator' },
     {
       label: 'Windows 시작할 때 자동 실행',

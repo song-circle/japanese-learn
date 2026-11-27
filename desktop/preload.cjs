@@ -8,4 +8,5 @@ contextBridge.exposeInMainWorld('desk', {
   hotkey: () => ipcRenderer.invoke('hotkey'),
   onAsk: (fn) => ipcRenderer.on('ask', fn),
   onWelcome: (fn) => ipcRenderer.on('welcome', fn),
+  onLesson: (fn) => ipcRenderer.on('lesson', (_e, minutes) => fn(minutes)),
 })

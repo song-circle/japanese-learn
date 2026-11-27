@@ -112,3 +112,7 @@ kbd {
 .diff { font-size: 18px; font-weight: 800; margin: 4px 0; letter-spacing: 0.5px; }
 .diff .d-ok { color: #66bb6a; }
 .diff .d-ng { color: #ff6b6b; text-decoration: underline; }
+.lesson-bar { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.12); margin: 8px 0; }
+.lesson-bar > div { height: 100%; border-radius: 2px; background: #e91e63; }
+.lesson-phase { font-size: 18px; font-weight: 800; margin: 6px 0; }
+.lesson-list { max-height: 260px; overflow-y: auto; }
