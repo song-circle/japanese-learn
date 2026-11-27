@@ -48,7 +48,8 @@ jobs:
 
           아래 `japanese-listen-setup-*.exe`를 받아 실행하면 설치되고 바로 켜집니다.
           - `Ctrl+Alt+J` (또는 트레이 아이콘 클릭): 일본어 음성 + 오른쪽 아래 보기 4개
-          - 1~4 고르기 · R 다시 듣기 · S 느리게 · H 힌트 · Space 다음 · Esc 닫기
+          - 1~4 고르기 · R 다시 듣기 · S 느리게 · H 힌트(하나씩, 각 -1점) · 0 포기 · Space 다음 · Esc 닫기
+          - 틀리면 정답을 바로 알려 주지 않아요. 다시 듣고 맞힐 때까지 고르세요(채점은 첫 번째 답으로)
           - 서명되지 않은 프로그램이라 처음 실행할 때 'Windows의 PC 보호' 창이 뜨면 '추가 정보' → '실행'
         files: desktop/release/japanese-listen-setup-*.exe
         prerelease: false

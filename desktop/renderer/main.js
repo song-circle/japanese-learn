@@ -1,8 +1,9 @@
 // 오른쪽 아래 작은 창: 소리 듣고 뜻 고르기
 //   문제 순서는 휴대폰 듣고 맞히기와 같다(복습할 것 먼저, 그다음 오늘의 새 문장).
 //   오늘 할 것을 다 했으면 배운 문장에서 골라 연습만 한다(복습 일정은 바꾸지 않음).
-//   힌트: 느리게(무료) · 한글 발음 · 첫 단어 뜻 · 보기 둘 지우기(각 -1점). 힌트 없이 맞히면 3점
-//   키보드: 1~4 고르기 · R 다시 듣기 · S 느리게 · H 힌트 · Space/Enter 다음 · Esc 닫기
+//   힌트: 처음엔 숨김. 💡(H)를 누를 때마다 한글 발음 → 첫 단어 뜻 → 보기 둘 지우기 순서로 하나씩(각 -1점)
+//   틀리면 정답을 알려 주지 않고 그 보기만 막은 뒤 다시 들려준다. 채점은 첫 번째로 고른 답으로
+//   키보드: 1~4 고르기 · R 다시 듣기 · S 느리게 · H 힌트 · 0 모르겠어요 · Space/Enter 다음 · Esc 닫기
 
 import './style.css'
 import { allSentences } from '../../src/data/sentences.js'
@@ -37,13 +38,16 @@ const subj = (word) => {
 const whoText = (who) => (who === '나' ? '내가 하는 말' : `${subj(who)} 하는 말`)
 
 // ---------- 상태 ----------
-let q = null        // { s, mode: 'review' | 'new' | 'practice', options, removed: Set }
-let picked = null   // 고른 보기
-let hints = { pron: false, word: false, fifty: false }
+let q = null        // { s, mode: 'review' | 'new' | 'practice', options, removed: Set(힌트로 지운 보기), wrongs: Set(틀리게 고른 보기) }
+let first = null    // 첫 번째로 고른 답이 맞았는지(채점은 이것으로). 아직 안 골랐으면 null
+let done = null     // 정답을 보여 주는 중이면 'right' | 'gaveup'
+let hintLevel = 0   // 연 힌트 수: 한글 발음 → 첫 단어 뜻 → 보기 둘 지우기 순서로 하나씩
 let audio = null
 let recent = []     // 방금 본 문장은 바로 다시 내지 않는다
 let session = { right: 0, total: 0, points: 0 }
 let hideTimer = null
+
+const hintSteps = (s) => ['pron', ...(s.words.length ? ['word'] : []), 'fifty']
 
 function play(slow = false) {
   if (!q) return
@@ -71,24 +75,23 @@ function pickQuestion() {
     mode = 'practice'
   }
   recent = [s.id, ...recent].slice(0, 3)
-  return { s, mode, options: optionsFor(s), removed: new Set() }
+  return { s, mode, options: optionsFor(s), removed: new Set(), wrongs: new Set() }
 }
 
 function next() {
   clearTimeout(hideTimer)
   q = pickQuestion()
-  picked = null
-  hints = { pron: false, word: false, fifty: false }
+  first = null
+  done = null
+  hintLevel = 0
   render()
   play()
 }
 
-function choose(opt) {
-  if (!q || picked !== null || q.removed.has(opt)) return
-  picked = opt
-  const correct = opt === q.s.ko
-  const used = (hints.pron ? 1 : 0) + (hints.word ? 1 : 0) + (hints.fifty ? 1 : 0)
-  const points = correct ? Math.max(1, 3 - used) : 0
+// 첫 번째 답으로 채점: 맞으면 3점에서 연 힌트 수만큼 빼고(최소 1점), 틀리면 0점·복습 간격 처음부터
+function gradeFirst(correct) {
+  first = correct
+  const points = correct ? Math.max(1, 3 - hintLevel) : 0
   if (q.mode === 'practice') {
     if (points) addBonus(1) // 연습은 일정은 그대로, 맞히면 1점만
   } else {
@@ -97,38 +100,59 @@ function choose(opt) {
   session.total += 1
   session.right += correct ? 1 : 0
   session.points += q.mode === 'practice' ? (points ? 1 : 0) : points
-  render()
   reportStatus()
-  // 맞혔으면 잠시 뒤 저절로 닫힌다(창 위에 마우스가 있으면 그대로)
-  if (correct) hideTimer = setTimeout(() => { if (!card.matches(':hover')) desk.hide() }, 6000)
 }
 
-function hint(kind) {
-  if (!q || picked !== null || hints[kind]) return
-  hints[kind] = true
-  if (kind === 'fifty') {
-    const wrong = shuffle(q.options.filter((o) => o !== q.s.ko)).slice(0, 2)
-    wrong.forEach((o) => q.removed.add(o))
+function choose(opt) {
+  if (!q || done || q.removed.has(opt) || q.wrongs.has(opt)) return
+  const correct = opt === q.s.ko
+  if (first === null) gradeFirst(correct)
+  if (correct) {
+    done = 'right'
+    // 한 번에 맞혔으면 잠시 뒤 저절로 닫힌다(창 위에 마우스가 있으면 그대로)
+    if (first) hideTimer = setTimeout(() => { if (!card.matches(':hover')) desk.hide() }, 6000)
+  } else {
+    // 틀려도 정답은 알려 주지 않는다. 그 보기만 막고 한 번 더 들려준다
+    q.wrongs.add(opt)
+    setTimeout(() => play(), 350)
   }
   render()
 }
 
-// 다음에 쓸 힌트 (H 키)
+function giveUp() {
+  if (!q || done) return
+  if (first === null) gradeFirst(false)
+  done = 'gaveup'
+  render()
+  play()
+}
+
+// 힌트 하나 더 열기 (💡 버튼, H 키)
 function nextHint() {
-  if (!hints.pron) hint('pron')
-  else if (!hints.word && q.s.words.length) hint('word')
-  else if (!hints.fifty) hint('fifty')
+  if (!q || done) return
+  const steps = hintSteps(q.s)
+  if (hintLevel >= steps.length) return
+  const kind = steps[hintLevel]
+  hintLevel += 1
+  if (kind === 'fifty') {
+    const left = q.options.filter((o) => o !== q.s.ko && !q.wrongs.has(o))
+    shuffle(left).slice(0, 2).forEach((o) => q.removed.add(o))
+  }
+  render()
 }
 
 // ---------- 화면 ----------
 function render() {
   if (!q) return
   const s = q.s
-  const answered = picked !== null
-  const correct = picked === s.ko
   const label = q.mode === 'new' ? '<span class="tag">새 문장</span>'
     : q.mode === 'review' ? '복습' : '연습 (오늘 할 것 끝)'
-  const scene = q.mode === 'new' || answered ? `${s.icon} ${esc(s.scene)} · ${whoText(s.who)}` : '🎧 소리만 듣고 뜻을 골라 보세요'
+  const scene = q.mode === 'new' || done ? `${s.icon} ${esc(s.scene)} · ${whoText(s.who)}` : '🎧 소리만 듣고 뜻을 골라 보세요'
+  const steps = hintSteps(s)
+  const opened = steps.slice(0, hintLevel)
+  const moreHints = !done && hintLevel < steps.length
+  const verdict = done === 'gaveup' ? ['ng', '정답은 이거예요']
+    : first ? ['ok', '정답! 🎉'] : ['ok', `맞혔어요 (${q.wrongs.size + 1}번째에) · 다음에 다시 나와요`]
 
   card.innerHTML = `
     <div class="top">
@@ -141,26 +165,24 @@ function render() {
     <div class="row">
       <button class="small play" data-act="play">🔊 다시 듣기 <kbd>R</kbd></button>
       <button class="small" data-act="slow">🐢 느리게 <kbd>S</kbd></button>
-      ${answered ? '' : `
-        ${hints.pron ? '' : '<button class="small" data-act="h-pron">한글 발음 -1</button>'}
-        ${hints.word || !s.words.length ? '' : '<button class="small" data-act="h-word">첫 단어 뜻 -1</button>'}
-        ${hints.fifty ? '' : '<button class="small" data-act="h-fifty">보기 둘 지우기 -1</button>'}
-      `}
+      ${moreHints ? `<button class="small" data-act="hint">💡 힌트${first === null ? ' -1점' : ''} <kbd>H</kbd></button>` : ''}
     </div>
-    ${!answered && hints.pron ? `<div class="hint">${esc(s.pron)}</div>` : ''}
-    ${!answered && hints.word ? `<div class="hint"><span class="sub">첫 단어</span> ${esc(s.words[0][1])} = ${esc(s.words[0][2])}</div>` : ''}
+    ${!done && opened.includes('pron') ? `<div class="hint"><span class="sub">발음</span> ${esc(s.pron)}</div>` : ''}
+    ${!done && opened.includes('word') ? `<div class="hint"><span class="sub">첫 단어</span> ${esc(s.words[0][1])} = ${esc(s.words[0][2])}</div>` : ''}
+    ${!done && q.wrongs.size ? '<div class="hint ngtext">✗ 아니에요. 다시 듣고 골라 보세요</div>' : ''}
     <div class="options">
       ${q.options.map((o, i) => {
         let cls = 'opt'
-        if (answered && o === s.ko) cls += ' correct'
-        else if (answered && o === picked) cls += ' wrong'
+        if (done && o === s.ko) cls += ' correct'
+        else if (q.wrongs.has(o)) cls += ' wrong'
         else if (q.removed.has(o)) cls += ' gone'
-        return `<button class="${cls}" data-opt="${i}" ${answered || q.removed.has(o) ? 'disabled' : ''}><span class="k">${i + 1}</span>${esc(o)}</button>`
+        const off = !!done || q.removed.has(o) || q.wrongs.has(o)
+        return `<button class="${cls}" data-opt="${i}" ${off ? 'disabled' : ''}><span class="k">${i + 1}</span>${esc(o)}</button>`
       }).join('')}
     </div>
-    ${answered ? `
+    ${done ? `
       <div class="result">
-        <div class="verdict ${correct ? 'ok' : 'ng'}">${correct ? '정답! 🎉' : '아쉬워요'}</div>
+        <div class="verdict ${verdict[0]}">${verdict[1]}</div>
         <div class="pron">${esc(s.pron)}</div>
         <div class="ja">${esc(s.ja)} — ${esc(s.ko)}</div>
         ${s.words.length ? `<ul class="words">${s.words.map(([, p, k]) => `<li>${esc(p)} — ${esc(k)}</li>`).join('')}</ul>` : ''}
@@ -168,7 +190,11 @@ function render() {
           <button class="small play" data-act="next">다음 문제 <kbd>Space</kbd></button>
           <button class="small" data-act="close">닫기 <kbd>Esc</kbd></button>
         </div>
-      </div>` : `<div class="keys">1~4 고르기 · H 힌트 · Esc 닫기</div>`}
+      </div>` : `
+      <div class="row" style="justify-content: space-between; align-items: center">
+        <span class="keys">1~4 고르기 · Esc 닫기</span>
+        <button class="small" data-act="giveup">포기 (정답 보기) <kbd>0</kbd></button>
+      </div>`}
   `
   fit()
 }
@@ -205,9 +231,8 @@ card.addEventListener('click', (e) => {
   else if (act === 'play') play()
   else if (act === 'slow') play(true)
   else if (act === 'next') next()
-  else if (act === 'h-pron') hint('pron')
-  else if (act === 'h-word') hint('word')
-  else if (act === 'h-fifty') hint('fifty')
+  else if (act === 'hint') nextHint()
+  else if (act === 'giveup') giveUp()
 })
 
 window.addEventListener('keydown', (e) => {
@@ -217,11 +242,12 @@ window.addEventListener('keydown', (e) => {
     if (k === ' ' || k === 'enter') next()
     return
   }
-  if (picked === null && ['1', '2', '3', '4'].includes(k)) return choose(q.options[Number(k) - 1])
+  if (!done && ['1', '2', '3', '4'].includes(k)) return choose(q.options[Number(k) - 1])
+  if (!done && k === '0') return giveUp()
   if (k === 'r') return play()
   if (k === 's') return play(true)
   if (k === 'h') return nextHint()
-  if (picked !== null && (k === ' ' || k === 'enter')) {
+  if (done && (k === ' ' || k === 'enter')) {
     e.preventDefault()
     next()
   }
@@ -231,7 +257,7 @@ card.addEventListener('mouseenter', () => clearTimeout(hideTimer))
 
 // 단축키·트레이: 풀기 전 문제가 있으면 다시 듣기, 아니면 새 문제
 desk.onAsk(() => {
-  if (q && picked === null) play()
+  if (q && !done) play()
   else next()
 })
 desk.onWelcome(welcome)
