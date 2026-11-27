@@ -1500,3 +1500,13 @@ body {
   font-size: 1.3rem;
   font-weight: 700;
 }
+
+/* 자동 업데이트 */
+.update-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  background: linear-gradient(135deg, #1565C0 0%, #42A5F5 100%);
+  color: white;
+}

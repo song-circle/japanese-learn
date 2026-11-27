@@ -5,6 +5,7 @@ import { allSentences } from '../data/sentences'
 import { todayPlan, speak, speakSentences } from '../utils/listenSrs'
 import { useState } from 'react'
 import { courseStatus, startCourse, COURSE_DAYS } from '../utils/course'
+import UpdateBox, { UpdateBanner } from './UpdateBox'
 
 // 30일 회화 코스: 오늘 할 세 단계를 순서대로 보여 준다
 function CourseCard({ navigate }) {
@@ -62,6 +63,8 @@ function Home({ navigate, progress }) {
         <h1>🇯🇵 日本語</h1>
         <p>매일 조금씩 배우는 일본어</p>
       </div>
+
+      <UpdateBanner />
 
       <CourseCard navigate={navigate} />
 
@@ -382,6 +385,8 @@ function Home({ navigate, progress }) {
           }
         </p>
       </div>
+
+      <UpdateBox />
 
       {/* 푸터 */}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>

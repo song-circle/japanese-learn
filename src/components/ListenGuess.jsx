@@ -5,31 +5,18 @@ import {
   todayPlan, grade, retryDone, addBonus, boxOf, dueTomorrow, loadListen,
   NO_OPTIONS_FROM_BOX, NEW_PER_DAY,
 } from '../utils/listenSrs'
+import { optionsFor, shuffle } from '../utils/distractors'
 import { markStepDone } from '../utils/course'
 
-// 듣고 맞히기
-//   새 문장 : 상황만 보여 주고 듣기 → 뜻 4개 중 고르기 → 답·한글 발음·단어 풀이
-//   복습    : 소리만 듣고 맞히기. 익숙한 문장(3단계~)은 보기 없이 떠올리고 스스로 채점
-//   힌트    : 느리게 듣기(무료) · 한글 발음(-1점) · 첫 단어 뜻(-1점). 힌트 없이 맞히면 3점
+// 듣고 맞히기 (PC 앱과 같은 방식)
+//   소리만 듣고 뜻 고르기. 보기 5개, 오답은 소리가 비슷한 문장 위주라 상황만 보고 외워서 맞히기 어렵다.
+//   장면 설명(어디서·누가)은 답을 낸 뒤에만 보여 준다.
+//   복습 중 익숙한 문장(3단계~)은 보기 없이 떠올리고 스스로 채점
+//   힌트: 처음엔 숨김. 💡를 누를 때마다 한글 발음 → 첫 단어 뜻 → 보기 둘 지우기(각 -1점). 느리게 듣기는 무료
+//   틀리면 정답을 알려 주지 않고 그 보기만 막은 뒤 다시 들려준다. 채점은 첫 번째로 고른 답으로
 //   따라 말하기: 답을 본 뒤 소리 내어 말하면 음성 인식으로 확인. 통하면 +1점(복습 간격과는 무관)
 
 const audioUrl = (id, slow) => `${import.meta.env.BASE_URL}audio/${id}${slow ? '.slow' : ''}.mp3`
-const shuffle = (xs) => {
-  const a = [...xs]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
-}
-
-// 오답 보기: 같은 상황의 다른 문장 뜻을 먼저, 모자라면 다른 상황에서
-function optionsFor(s) {
-  const same = shuffle(allSentences.filter((x) => x.situation === s.situation && x.id !== s.id))
-  const other = shuffle(allSentences.filter((x) => x.situation !== s.situation))
-  const wrong = [...same, ...other].map((x) => x.ko).filter((ko, i, arr) => ko !== s.ko && arr.indexOf(ko) === i).slice(0, 3)
-  return shuffle([s.ko, ...wrong])
-}
 
 // 받침이 있으면 '이', 없으면 '가' (점원이 / 상대가)
 const subj = (word) => {
@@ -41,9 +28,12 @@ const whoText = (who) => (who === '나' ? '내가 하는 말' : `${subj(who)} �
 function ListenGuess({ onBack }) {
   const [queue, setQueue] = useState(null)   // [{ s, mode: 'new'|'review', retry, noOptions }]
   const [index, setIndex] = useState(0)
-  const [picked, setPicked] = useState(null) // 고른 보기, 또는 'self-right' / 'self-wrong'
+  const [first, setFirst] = useState(null)   // 첫 번째 답이 맞았는지(채점 기준). 아직이면 null
+  const [done, setDone] = useState(null)     // 정답을 보여 주는 중: 'right' | 'gaveup'
+  const [wrongs, setWrongs] = useState([])   // 틀리게 고른 보기
+  const [removed, setRemoved] = useState([]) // 힌트로 지운 보기
   const [revealed, setRevealed] = useState(false) // 보기 없는 문제에서 답을 열었는지
-  const [hints, setHints] = useState({ pron: false, word: false })
+  const [hintLevel, setHintLevel] = useState(0)
   const [showJa, setShowJa] = useState(false)
   const [session, setSession] = useState({ right: 0, wrong: 0, points: 0 })
   const audio = useRef(null)
@@ -53,8 +43,9 @@ function ListenGuess({ onBack }) {
   const s = current?.s
   // 보기 없이 낼지는 카드를 큐에 넣을 때 정한다(채점하면 단계가 바뀌므로 화면 도중에 다시 계산하지 않음)
   const noOptions = !!current?.noOptions
-  const options = useMemo(() => (s ? optionsFor(s) : []), [s])
-  const answered = picked !== null
+  const options = useMemo(() => (s ? optionsFor(s, allSentences) : []), [s])
+  const steps = s ? ['pron', ...(s.words.length ? ['word'] : []), ...(noOptions ? [] : ['fifty'])] : []
+  const opened = steps.slice(0, hintLevel)
 
   const play = (slow = false) => {
     if (!s) return
@@ -71,6 +62,12 @@ function ListenGuess({ onBack }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, started])
 
+  // 끝까지 했으면 30일 코스의 오늘 단계를 끝으로 표시
+  const over = queue !== null && index >= queue.length
+  useEffect(() => {
+    if (over) markStepDone('listen')
+  }, [over])
+
   const start = () => {
     const q = [
       ...plan.reviews.map((x) => ({ s: x, mode: 'review', noOptions: boxOf(x.id) >= NO_OPTIONS_FROM_BOX })),
@@ -80,9 +77,10 @@ function ListenGuess({ onBack }) {
     setIndex(0)
   }
 
-  const finish = (correct) => {
-    const used = (hints.pron ? 1 : 0) + (hints.word ? 1 : 0)
-    const points = correct ? Math.max(1, 3 - used) : 0
+  // 첫 번째 답으로 채점: 맞으면 3점에서 연 힌트 수만큼 빼고(최소 1점)
+  const gradeFirst = (correct) => {
+    setFirst(correct)
+    const points = correct ? Math.max(1, 3 - hintLevel) : 0
     // 같은 학습에서 다시 나온 문제는 단계를 바꾸지 않고 다음 복습만 내일로
     if (current.retry) retryDone(s.id, points)
     else grade(s.id, correct, points)
@@ -96,9 +94,37 @@ function ListenGuess({ onBack }) {
   }
 
   const choose = (opt) => {
-    if (answered) return
-    setPicked(opt)
-    finish(opt === s.ko)
+    if (done || wrongs.includes(opt) || removed.includes(opt)) return
+    const correct = opt === s.ko
+    if (first === null) gradeFirst(correct)
+    if (correct) {
+      setDone('right')
+    } else {
+      // 틀려도 정답은 알려 주지 않는다. 그 보기만 막고 한 번 더 들려준다
+      setWrongs((w) => [...w, opt])
+      setTimeout(() => play(), 350)
+    }
+  }
+
+  const giveUp = () => {
+    if (done) return
+    if (first === null) gradeFirst(false)
+    setDone('gaveup')
+    play()
+  }
+
+  const selfGrade = (correct) => {
+    gradeFirst(correct)
+    setDone(correct ? 'right' : 'gaveup')
+  }
+
+  const nextHint = () => {
+    if (done || hintLevel >= steps.length) return
+    if (steps[hintLevel] === 'fifty') {
+      const left = options.filter((o) => o !== s.ko && !wrongs.includes(o))
+      setRemoved(shuffle(left).slice(0, 2))
+    }
+    setHintLevel((h) => h + 1)
   }
 
   const speakPassed = () => {
@@ -106,24 +132,16 @@ function ListenGuess({ onBack }) {
     setSession((x) => ({ ...x, points: x.points + 1 }))
   }
 
-  const selfGrade = (correct) => {
-    setPicked(correct ? 'self-right' : 'self-wrong')
-    finish(correct)
-  }
-
   const next = () => {
     setIndex((i) => i + 1)
-    setPicked(null)
+    setFirst(null)
+    setDone(null)
+    setWrongs([])
+    setRemoved([])
     setRevealed(false)
-    setHints({ pron: false, word: false })
+    setHintLevel(0)
     setShowJa(false)
   }
-
-  // 끝까지 했으면 30일 코스의 오늘 단계를 끝으로 표시
-  const over = queue !== null && index >= queue.length
-  useEffect(() => {
-    if (over) markStepDone('listen')
-  }, [over])
 
   // ---------- 시작 화면 ----------
   if (!queue) {
@@ -162,7 +180,7 @@ function ListenGuess({ onBack }) {
   }
 
   // ---------- 끝 ----------
-  if (index >= queue.length) {
+  if (over) {
     return (
       <div className="fade-in">
         <header className="header">
@@ -183,8 +201,10 @@ function ListenGuess({ onBack }) {
   }
 
   // ---------- 문제 ----------
-  const correctNow = picked === s.ko || picked === 'self-right'
-  const showAnswer = answered || revealed
+  const verdict = noOptions
+    ? (done === 'right' ? ['#4CAF50', '떠올렸어요 👍'] : ['#F44336', '다음에 다시 나와요'])
+    : done === 'gaveup' ? ['#F44336', '정답은 이거예요']
+    : first ? ['#4CAF50', '정답! 🎉'] : ['#FF9800', `맞혔어요 (${wrongs.length + 1}번째에) · 다음에 다시 나와요`]
   return (
     <div className="fade-in">
       <header className="header">
@@ -200,28 +220,26 @@ function ListenGuess({ onBack }) {
         </div>
 
         <div className="quiz-question-card">
-          {current.mode === 'new' ? (
-            <>
-              <p className="quiz-subtitle">{s.icon} {s.scene} · {whoText(s.who)}</p>
-              <p style={{ fontSize: '0.85rem', color: 'var(--accent)' }}>새 문장</p>
-            </>
-          ) : (
-            <p className="quiz-subtitle">🎧 소리만 듣고 맞혀 보세요{current.retry ? ' (다시)' : ''}</p>
-          )}
+          <p className="quiz-subtitle">
+            {current.mode === 'new' && <span style={{ color: 'var(--accent)', fontWeight: 700 }}>새 문장 · </span>}
+            {noOptions ? '🧠 소리만 듣고 뜻을 떠올려 보세요' : `🎧 소리만 듣고 뜻을 골라 보세요${current.retry ? ' (다시)' : ''}`}
+          </p>
           <div className="listen-sound">
-          <button className="quiz-sound-btn" onClick={() => play()} aria-label="다시 듣기">
-            <svg viewBox="0 0 24 24" fill="white" width="32" height="32">
-              <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
-            </svg>
-          </button>
+            <button className="quiz-sound-btn" onClick={() => play()} aria-label="다시 듣기">
+              <svg viewBox="0 0 24 24" fill="white" width="32" height="32">
+                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+              </svg>
+            </button>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap', marginTop: '1rem' }}>
             <button className="btn-secondary btn" onClick={() => play(true)}>🐢 느리게</button>
-            {!showAnswer && !hints.pron && <button className="btn-secondary btn" onClick={() => setHints((h) => ({ ...h, pron: true }))}>한글 발음 (-1점)</button>}
-            {!showAnswer && !hints.word && s.words.length > 0 && <button className="btn-secondary btn" onClick={() => setHints((h) => ({ ...h, word: true }))}>첫 단어 뜻 (-1점)</button>}
+            {!done && !revealed && hintLevel < steps.length && (
+              <button className="btn-secondary btn" onClick={nextHint}>💡 힌트{first === null ? ' (-1점)' : ''}</button>
+            )}
           </div>
-          {!showAnswer && hints.pron && <p style={{ fontSize: '1.4rem', marginTop: '1rem' }}>{s.pron}</p>}
-          {!showAnswer && hints.word && <p style={{ marginTop: '0.5rem', color: 'var(--text-secondary)' }}>{s.words[0][1]} = {s.words[0][2]}</p>}
+          {!done && opened.includes('pron') && <p style={{ fontSize: '1.4rem', marginTop: '1rem' }}>{s.pron}</p>}
+          {!done && opened.includes('word') && <p style={{ marginTop: '0.5rem', color: 'var(--text-secondary)' }}>첫 단어: {s.words[0][1]} = {s.words[0][2]}</p>}
+          {!done && wrongs.length > 0 && <p style={{ marginTop: '0.75rem', color: '#F44336' }}>✗ 아니에요. 다시 듣고 골라 보세요</p>}
         </div>
 
         {/* 보기 */}
@@ -229,30 +247,38 @@ function ListenGuess({ onBack }) {
           <div className="listen-options">
             {options.map((opt) => {
               let cls = 'quiz-option'
-              if (answered && opt === s.ko) cls += ' correct'
-              else if (answered && opt === picked) cls += ' wrong'
+              if (done && opt === s.ko) cls += ' correct'
+              else if (wrongs.includes(opt)) cls += ' wrong'
+              const gone = removed.includes(opt) && !wrongs.includes(opt)
               return (
-                <button key={opt} className={cls} onClick={() => choose(opt)} disabled={answered}>{opt}</button>
+                <button key={opt} className={cls} onClick={() => choose(opt)}
+                  disabled={!!done || wrongs.includes(opt) || removed.includes(opt)}
+                  style={gone ? { opacity: 0.3, textDecoration: 'line-through' } : undefined}>
+                  {opt}
+                </button>
               )
             })}
           </div>
+        )}
+        {!noOptions && !done && (
+          <button className="btn-secondary btn" style={{ width: '100%', marginTop: '0.75rem' }} onClick={giveUp}>포기 (정답 보기)</button>
         )}
 
         {/* 보기 없는 문제: 떠올리고 답 확인 → 스스로 채점 */}
         {noOptions && !revealed && (
           <button className="quiz-next-btn" onClick={() => setRevealed(true)}>뜻을 떠올렸으면 답 보기</button>
         )}
-        {noOptions && revealed && !answered && (
+        {noOptions && revealed && !done && (
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-            <button className="btn" style={{ flex: 1, background: '#4CAF50' }} onClick={() => selfGrade(true)}>맞혔어요</button>
+            <button className="btn" style={{ flex: 1, background: '#4CAF50' }} onClick={() => selfGrade(true)}>떠올렸어요</button>
             <button className="btn" style={{ flex: 1, background: '#F44336' }} onClick={() => selfGrade(false)}>몰랐어요</button>
           </div>
         )}
 
         {/* 답 풀이 */}
-        {showAnswer && (
+        {(done || revealed) && (
           <div className="card" style={{ marginTop: '1rem' }}>
-            {answered && <p style={{ fontWeight: 700, color: correctNow ? '#4CAF50' : '#F44336' }}>{correctNow ? '정답! 🎉' : '아쉬워요'}</p>}
+            {done && <p style={{ fontWeight: 700, color: verdict[0] }}>{verdict[1]}</p>}
             <p style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0.25rem 0' }}>{s.pron}</p>
             <p style={{ fontSize: '1.1rem' }}>{s.ko}</p>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{s.icon} {s.scene} · {whoText(s.who)}</p>
@@ -270,9 +296,9 @@ function ListenGuess({ onBack }) {
           </div>
         )}
 
-        {answered && <ShadowSpeak key={index} sentence={s} onPass={speakPassed} />}
+        {done && <ShadowSpeak key={index} sentence={s} onPass={speakPassed} />}
 
-        {answered && (
+        {done && (
           <button className="quiz-next-btn" onClick={next}>{index < queue.length - 1 ? '다음 →' : '결과 보기 🎯'}</button>
         )}
       </div>

@@ -5,7 +5,26 @@
 const ONES = [null, ['いち', '이치'], ['に', '니'], ['さん', '산'], ['よん', '욘'], ['ご', '고'],
   ['ろく', '로쿠'], ['なな', '나나'], ['はち', '하치'], ['きゅう', '큐-']]
 
-const join = (parts) => [parts.map((p) => p[0]).join(''), parts.map((p) => p[1]).join('')]
+// 한글 발음은 문장 데이터와 같은 규칙: 단어 중간의 ㅋ·ㅌ·ㅍ는 들리는 대로 ㄲ·ㄸ·ㅃ
+const TENSE = { 15: 1, 16: 4, 17: 8 }
+export function tense(pron) {
+  let out = ''
+  let wordStart = true
+  for (const ch of pron) {
+    const code = ch.charCodeAt(0) - 0xac00
+    if (code >= 0 && code < 11172) {
+      const cho = Math.floor(code / 588)
+      out += !wordStart && TENSE[cho] !== undefined ? String.fromCharCode(0xac00 + TENSE[cho] * 588 + (code % 588)) : ch
+      wordStart = false
+    } else {
+      out += ch
+      if (ch !== '-') wordStart = true
+    }
+  }
+  return out
+}
+
+const join = (parts) => [parts.map((p) => p[0]).join(''), tense(parts.map((p) => p[1]).join(''))]
 
 // 1~9999
 function under10000(n) {
@@ -129,7 +148,7 @@ export function makeQuestion(kind) {
       [`おかいけい、${kana}です`, `오카이케- ${pron} 데스`, '점원: 계산은 ~엔입니다', '식당 계산'],
       [`ぜんぶで${kana}になります`, `젠부데 ${pron} 니 나리마스`, '점원: 전부 ~엔입니다', '가게 계산대'],
     ])
-    return { kind, answer: String(n), show: fmtPrice(n), ja: t[0], pron: t[1], ko: t[2].replace('~', fmtPrice(n).replace('엔', '')), scene: t[3] }
+    return { kind, answer: String(n), show: fmtPrice(n), ja: t[0], pron: tense(t[1]), ko: t[2].replace('~', fmtPrice(n).replace('엔', '')), scene: t[3] }
   }
   if (kind === 'time') {
     const time = { h: rand(1, 12), m: rand(0, 11) * 5, ampm: pick(['', '', 'am', 'pm']), han: Math.random() < 0.5 }
@@ -141,7 +160,7 @@ export function makeQuestion(kind) {
     ])
     const show = fmtTime(time)
     // 답은 '시'와 '분'을 붙인 숫자(3시 15분 = 315, 12시 = 1200). 오전·오후는 보기만
-    return { kind, answer: `${time.h}${String(time.m).padStart(2, '0')}`, show, ja: t[0], pron: t[1], ko: t[2].replace('~', show), scene: t[3] }
+    return { kind, answer: `${time.h}${String(time.m).padStart(2, '0')}`, show, ja: t[0], pron: tense(t[1]), ko: t[2].replace('~', show), scene: t[3] }
   }
   if (kind === 'count') {
     const n = rand(1, 10)
@@ -150,7 +169,7 @@ export function makeQuestion(kind) {
       [`これを${kana}ください`, `코레오 ${pron} 쿠다사이`, '이거 ~개 주세요', '가게에서 (손님)'],
       [`${kana}ですね`, `${pron} 데스네`, '~개 맞으시죠', '점원 확인'],
     ])
-    return { kind, answer: String(n), show: `${n}개`, ja: t[0], pron: t[1], ko: t[2].replace('~', n), scene: t[3] }
+    return { kind, answer: String(n), show: `${n}개`, ja: t[0], pron: tense(t[1]), ko: t[2].replace('~', n), scene: t[3] }
   }
   // people
   const n = rand(1, 10)
@@ -159,7 +178,7 @@ export function makeQuestion(kind) {
     [`${kana}です`, `${pron} 데스`, '~명입니다', '식당 입구 (손님)'],
     [`${kana}さまですね`, `${pron} 사마 데스네`, '~분이시죠', '식당 점원 확인'],
   ])
-  return { kind, answer: String(n), show: `${n}명`, ja: t[0], pron: t[1], ko: t[2].replace('~', n), scene: t[3] }
+  return { kind, answer: String(n), show: `${n}명`, ja: t[0], pron: tense(t[1]), ko: t[2].replace('~', n), scene: t[3] }
 }
 
 export const KINDS = [

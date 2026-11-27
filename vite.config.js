@@ -1,9 +1,14 @@
 import { defineConfig } from 'vite'
+import process from 'node:process'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // 앱 버전 번호(GitHub 빌드 번호). 자동 업데이트가 새 버전인지 비교할 때 쓴다
+  define: {
+    __WEB_VERSION__: JSON.stringify(process.env.WEB_VERSION ?? '0'),
+  },
   plugins: [
     react(),
     VitePWA({
