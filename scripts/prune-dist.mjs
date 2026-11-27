@@ -6,7 +6,7 @@ import path from 'node:path'
 const dir = path.resolve('dist/audio')
 let removed = 0
 for (const f of fs.existsSync(dir) ? fs.readdirSync(dir) : []) {
-  if (/^(ko|lesson|guide|num)-/.test(f)) {
+  if (/^(ko|lesson|guide|block|num)-/.test(f)) {
     fs.unlinkSync(path.join(dir, f))
     removed++
   }

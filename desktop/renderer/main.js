@@ -424,7 +424,7 @@ function renderLesson() {
       <button class="small" data-act="lesson-subs">자막 ${lesson.subs ? '끄기' : '켜기'} <kbd>T</kbd></button>
       <button class="small" data-act="lesson-stop">■ 끝내기 <kbd>X</kbd></button>
     </div>
-    <div class="keys">🔔 딩동 + "말해 보세요" → 한국어를 듣고 일본어로 말하기 (똑똑 소리 동안) · 🔕 종소리 + "들어 보세요" → 일본어 듣고 뜻 떠올리기</div>
+    <div class="keys">듣기 연습·말하기 연습이 5문장씩 번갈아 나와요. 한국어 뒤에 "일본어로 말해 보세요"가 나오면 말할 차례(똑똑 소리 동안), "뜻은," 뒤의 한국어는 정답이에요.</div>
     <div class="keys">창을 닫아도(✕·Esc) 수업 소리는 계속 나와요. 이어폰을 끼고 다른 일을 해도 돼요.</div>`
   fit()
 }

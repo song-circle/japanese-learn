@@ -15,7 +15,7 @@ const speakable = (ko) => ko.replace(/\s*\(([^)]*)\)/g, ', $1').replace(/\s*\/\s
 export const koClips = [...allSentences, ...patternSentences].map((s) => ({ id: `ko-${s.id}`, text: speakable(s.ko) }))
 
 export const lessonClips = [
-  { id: 'lesson-start', text: '오디오 수업을 시작할게요. 딩동 소리와 함께 말해 보세요가 나오면, 한국어를 듣고 일본어로 말해 보세요. 종소리와 함께 들어 보세요가 나오면, 일본어를 듣고 뜻을 떠올려 보세요.' },
+  { id: 'lesson-start', text: '오디오 수업을 시작할게요. 듣기 연습과 말하기 연습이 다섯 문장씩 번갈아 나와요.' },
   { id: 'lesson-ask-jp', text: '일본어로?' },
   { id: 'lesson-ask-meaning', text: '무슨 뜻일까요?' },
   { id: 'lesson-repeat', text: '따라 해 보세요.' },
@@ -28,4 +28,10 @@ export const guideClips = [
   { id: 'guide-say', text: '말해 보세요.' },
   { id: 'guide-listen', text: '들어 보세요.' },
   { id: 'guide-meaning', text: '뜻은,' },
+  // 한국어 뒤에 붙여 '이걸 말할 차례'라는 걸 말로 분명히
+  { id: 'guide-say-jp', text: '일본어로 말해 보세요.' },
+  { id: 'guide-answer', text: '정답.' },
+  // 5문장 묶음이 바뀔 때
+  { id: 'block-listen', text: '듣기 연습이에요. 일본어를 듣고 뜻을 떠올려 보세요.' },
+  { id: 'block-speak', text: '말하기 연습이에요. 한국어를 듣고 일본어로 말해 보세요.' },
 ]
